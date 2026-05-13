@@ -14,7 +14,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-      # Required for npm provenance (--provenance flag in release script)
+      # Required for npm provenance (publishConfig.provenance in package.json)
       id-token: write
 
     steps:
@@ -42,10 +42,9 @@ jobs:
       - name: Create Release PR or Publish
         uses: changesets/action@63a615b9cd06ba9a3e6d13796c7fbcb080a60a0b # v1.8.0
         with:
-          publish: pnpm --filter @shamokit/svelte-wordcloud release
+          publish: pnpm changeset publish
           title: "chore: version packages"
           commit: "chore: version packages"
-          # Automatically create a GitHub Release for each published package
           createGithubReleases: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
