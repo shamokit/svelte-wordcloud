@@ -1,5 +1,11 @@
 # @shamokit/svelte-wordcloud
 
+## 0.1.3
+
+### Patch Changes
+
+- [#15](https://github.com/shamokit/svelte-wordcloud/pull/15) [`7c6e850`](https://github.com/shamokit/svelte-wordcloud/commit/7c6e85082d4983be06cc23d2b41a0704af4e38de) Thanks [@shamokit](https://github.com/shamokit)! - Extract shared font metrics logic, cache troika import, add error handling and input validation.
+
 ## 0.1.2
 
 ### Patch Changes
