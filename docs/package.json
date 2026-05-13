@@ -18,6 +18,7 @@
     "@shamokit/svelte-wordcloud": "workspace:*",
     "@threlte/core": "^8.5.9",
     "@threlte/extras": "^9.14.9",
+    "@vercel/speed-insights": "^2.0.0",
     "three": "^0.184.0",
     "troika-three-text": "^0.52.4"
   }
