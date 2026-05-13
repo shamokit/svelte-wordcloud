@@ -2,7 +2,7 @@
   "name": "@shamokit/svelte-wordcloud",
   "private": false,
   "version": "0.1.0",
-  "description": "A composable 3D word cloud component library for Svelte 5, built on Threlte and troika-three-text. Supports depth layers, zoom/pan, audio playback, and full accessibility.",
+  "description": "Word cloud component library for Svelte with accessibility support.",
   "author": "shamokit <contact@shamokit.com>",
   "license": "MIT",
   "repository": {
