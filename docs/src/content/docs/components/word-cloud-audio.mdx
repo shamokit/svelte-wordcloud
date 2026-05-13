@@ -42,11 +42,11 @@ Must be a descendant of `WordCloud`.
   </WordCloudLabel>
 
   <WordCloud3D fontUrl={FONT_URL} />
-  <WordCloudAudio lang="ja-JP">
+  <WordCloudAudio>
     <WordCloudAudioLabel>
       {#snippet children({ props, isPlaying })}
         <span {...props} style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">
-          {isPlaying ? '停止' : '再生'}
+          {isPlaying ? 'Pause' : 'Play'}
         </span>
       {/snippet}
     </WordCloudAudioLabel>
@@ -65,11 +65,11 @@ The button inherits the `color` set on `WordCloud` for its icon and background t
 | `children` | `Snippet<[{ props: { id: string }; isPlaying: boolean }]>` | **Required.** Spread `props` onto your label element and use `isPlaying` to set the text. |
 
 ```svelte
-<WordCloudAudio lang="ja-JP">
+<WordCloudAudio>
   <WordCloudAudioLabel>
     {#snippet children({ props, isPlaying })}
       <span {...props} style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">
-        {isPlaying ? '停止' : '再生'}
+        {isPlaying ? 'Pause' : 'Play'}
       </span>
     {/snippet}
   </WordCloudAudioLabel>
