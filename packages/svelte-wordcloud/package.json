@@ -9,7 +9,7 @@
     "type": "git",
     "url": "git+https://github.com/shamokit/svelte-wordcloud.git"
   },
-  "homepage": "https://github.com/shamokit/svelte-wordcloud#readme",
+  "homepage": "https://svelte-wordcloud-docs.vercel.app",
   "bugs": {
     "url": "https://github.com/shamokit/svelte-wordcloud/issues"
   },
