@@ -56,7 +56,7 @@ export default defineConfig({
 
 ## Documentation
 
-[shamokit.github.io/svelte-wordcloud](https://shamokit.github.io/svelte-wordcloud)
+[svelte-wordcloud-docs.vercel.app](https://svelte-wordcloud-docs.vercel.app)
 
 ## License
 
