@@ -10,6 +10,9 @@
     "version": "changeset version",
     "release": "pnpm --filter @shamokit/svelte-wordcloud release"
   },
+  "devDependencies": {
+    "@changesets/cli": "^2.31.0"
+  },
   "pnpm": {
     "overrides": {
       "svelte2tsx": "^0.7.55"
