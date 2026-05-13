@@ -29,6 +29,9 @@ importers:
       '@threlte/extras':
         specifier: ^9.14.9
         version: 9.14.9(@types/three@0.184.0)(svelte@5.55.5)(three@0.184.0)
+      '@vercel/speed-insights':
+        specifier: ^2.0.0
+        version: 2.0.0(@sveltejs/kit@2.58.0(@sveltejs/vite-plugin-svelte@6.2.4(svelte@5.55.5)(vite@7.3.3(@types/node@24.12.3)(lightningcss@1.32.0)))(svelte@5.55.5)(typescript@6.0.3)(vite@7.3.3(@types/node@24.12.3)(lightningcss@1.32.0)))(svelte@5.55.5)
       three:
         specifier: ^0.184.0
         version: 0.184.0
@@ -1321,6 +1324,32 @@ packages:
 
   '@vercel/routing-utils@5.3.3':
     resolution: {integrity: sha512-KYm2sLNUD48gDScv8ob4ejc3Gww2jcJyW80hTdYlenAPz/5BQar1Gyh38xrUuZ532TUwSb5mV1uRbAuiykq0EQ==}
+
+  '@vercel/speed-insights@2.0.0':
+    resolution: {integrity: sha512-jwkNcrTeafWxjmWq4AHBaptSqZiJkYU5adLC9QBSqeim0GcqDMgN5Ievh8OG1rJ6W3A4l1oiP7qr9CWxGuzu3w==}
+    peerDependencies:
+      '@sveltejs/kit': ^1 || ^2
+      next: '>= 13'
+      nuxt: '>= 3'
+      react: ^18 || ^19 || ^19.0.0-rc
+      svelte: '>= 4'
+      vue: ^3
+      vue-router: ^4
+    peerDependenciesMeta:
+      '@sveltejs/kit':
+        optional: true
+      next:
+        optional: true
+      nuxt:
+        optional: true
+      react:
+        optional: true
+      svelte:
+        optional: true
+      vue:
+        optional: true
+      vue-router:
+        optional: true
 
   abbrev@3.0.1:
     resolution: {integrity: sha512-AO2ac6pjRB3SJmGJo+v5/aK6Omggp6fsLrs6wN9bd35ulu4cCwaAU9+7ZhXjeqHVkaHThLuzH0nZr0YpCDhygg==}
@@ -4292,6 +4321,11 @@ snapshots:
       path-to-regexp-updated: path-to-regexp@6.3.0
     optionalDependencies:
       ajv: 6.15.0
+
+  '@vercel/speed-insights@2.0.0(@sveltejs/kit@2.58.0(@sveltejs/vite-plugin-svelte@6.2.4(svelte@5.55.5)(vite@7.3.3(@types/node@24.12.3)(lightningcss@1.32.0)))(svelte@5.55.5)(typescript@6.0.3)(vite@7.3.3(@types/node@24.12.3)(lightningcss@1.32.0)))(svelte@5.55.5)':
+    optionalDependencies:
+      '@sveltejs/kit': 2.58.0(@sveltejs/vite-plugin-svelte@6.2.4(svelte@5.55.5)(vite@7.3.3(@types/node@24.12.3)(lightningcss@1.32.0)))(svelte@5.55.5)(typescript@6.0.3)(vite@7.3.3(@types/node@24.12.3)(lightningcss@1.32.0))
+      svelte: 5.55.5
 
   abbrev@3.0.1: {}
 
