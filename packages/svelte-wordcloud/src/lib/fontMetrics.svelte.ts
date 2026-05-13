@@ -2,6 +2,21 @@ import { DEV } from 'esm-env';
 
 export const CHAR_W_FALLBACK = 0.6;
 
+// Cached at module level so troika-three-text is imported only once across all instances.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let troikaPromise: Promise<any> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getTroika(): Promise<any> {
+	if (!troikaPromise) {
+		// @ts-ignore
+		troikaPromise = import(/* @vite-ignore */ 'troika-three-text').catch((err) => {
+			troikaPromise = null; // allow retry on next measurement
+			throw err;
+		});
+	}
+	return troikaPromise;
+}
+
 /**
  * Shared reactive font metrics for WordCloud3D and WordCloudFlat.
  * Call at component initialization; uses Svelte 5 runes internally.
@@ -25,8 +40,7 @@ export function createFontMetrics(
 		let remaining = words.length;
 		const measuredW: Record<string, number> = {};
 		const measuredHH: Record<string, number> = {};
-		// @ts-ignore
-		import(/* @vite-ignore */ 'troika-three-text')
+		getTroika()
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			.then((mod: any) => {
 				if (cancelled) return;
