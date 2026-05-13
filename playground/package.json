@@ -1,0 +1,27 @@
+{
+  "name": "playground",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "prepare": "svelte-kit sync || echo ''"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-auto": "^7.0.1",
+    "@sveltejs/kit": "^2.57.0",
+    "@sveltejs/vite-plugin-svelte": "^7.0.0",
+    "@types/three": "^0.184.0",
+    "svelte": "^5.55.2",
+    "vite": "^8.0.7"
+  },
+  "dependencies": {
+    "@shamokit/svelte-wordcloud": "workspace:*",
+    "@threlte/core": "^8.5.9",
+    "@threlte/extras": "^9.14.9",
+    "three": "^0.184.0",
+    "troika-three-text": "^0.52.4"
+  }
+}

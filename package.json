@@ -1,0 +1,18 @@
+{
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter playground dev",
+    "build:lib": "pnpm --filter @shamokit/svelte-wordcloud prepack",
+    "docs:dev": "pnpm --filter docs dev",
+    "docs:build": "pnpm --filter docs build",
+    "check": "pnpm --filter @shamokit/svelte-wordcloud check",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "pnpm --filter @shamokit/svelte-wordcloud release"
+  },
+  "pnpm": {
+    "overrides": {
+      "svelte2tsx": "^0.7.55"
+    }
+  }
+}

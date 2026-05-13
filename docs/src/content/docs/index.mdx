@@ -1,0 +1,52 @@
+---
+title: Introduction
+description: A composable word cloud component library for Svelte.
+hero:
+  title: svelte-wordcloud
+  tagline: A composable word cloud component library for Svelte.
+  actions:
+    - text: Get Started
+      link: /installation/
+      icon: right-arrow
+      variant: primary
+    - text: GitHub
+      link: https://github.com/shamokit/svelte-wordcloud
+      icon: github
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+<CardGrid stagger>
+  <Card title="3D depth layers" icon="bars">
+    Words are arranged across depth layers. Navigate with `Ctrl + Wheel`, pinch-to-zoom, or a built-in scrollbar.
+  </Card>
+  <Card title="Mobile-friendly" icon="laptop">
+    Pinch-to-zoom and single-finger pan work out of the box on touch devices.
+  </Card>
+  <Card title="Accessible" icon="heart">
+    Canvas gets `role="img"` and `aria-labelledby`. Built-in ARIA slider, visually-hidden word list, and text-to-speech reader included.
+  </Card>
+  <Card title="Flexible styling" icon="pencil">
+    Control colors, spacing, and layout via CSS custom properties. No configuration object — just CSS.
+  </Card>
+</CardGrid>
+
+## Acknowledgements
+
+svelte-wordcloud stands on the shoulders of two wonderful open-source projects.
+A heartfelt thank you to the authors and contributors of Threlte and troika-three-text —
+this library would not exist without your work.
+
+<CardGrid>
+  <LinkCard
+    title="Threlte"
+    href="https://threlte.xyz/"
+    description="A component library for Three.js in Svelte."
+  />
+  <LinkCard
+    title="troika-three-text"
+    href="https://github.com/protectwise/troika/tree/main/packages/troika-three-text"
+    description="High-quality SDF text rendering for Three.js."
+  />
+</CardGrid>

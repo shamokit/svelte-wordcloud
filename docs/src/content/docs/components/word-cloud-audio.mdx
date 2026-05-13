@@ -1,0 +1,77 @@
+---
+title: WordCloudAudio
+description: Text-to-speech playback button for word cloud data.
+---
+
+import WordCloudAudioDemo from '../../../components/WordCloudAudioDemo.svelte';
+
+`WordCloudAudio` renders a play/pause button that reads out the word cloud data using the browser's Web Speech API. Words are shuffled and spoken in order, with volume proportional to each word's `counts` value. The button is hidden automatically when the browser does not support `speechSynthesis`.
+
+Must be a descendant of `WordCloud`.
+
+<WordCloudAudioDemo client:only="svelte" />
+
+## Props
+
+| Prop | Type | Default | Description |
+| ---- | ---- | ------- | ----------- |
+| `lang` | `string` | document language | BCP 47 language tag passed to `SpeechSynthesisUtterance` (e.g. `'ja-JP'`, `'en-US'`). |
+| `gap` | `number` | `60` | Milliseconds of silence between words. |
+| `rate` | `number` | `2.0` | Speech rate passed to `SpeechSynthesisUtterance`. |
+| `playLabel` | `string` | `'Play'` | Accessible label for the button in stopped state. Used as fallback when no `WordCloudAudioLabel` is provided. |
+| `pauseLabel` | `string` | `'Pause'` | Accessible label for the button in playing state. Used as fallback when no `WordCloudAudioLabel` is provided. |
+| `children` | `Snippet` | — | Place a `WordCloudAudioLabel` here to override `playLabel`/`pauseLabel` with a fully custom localised label via `aria-labelledby`. |
+
+## Usage
+
+```svelte
+<script lang="ts">
+  import {
+    WordCloud, WordCloud3D,
+    WordCloudLabel, WordCloudAudio, WordCloudAudioLabel,
+  } from '@shamokit/svelte-wordcloud';
+</script>
+
+<WordCloud data={words}>
+  <WordCloudLabel>
+    {#snippet label({ props })}
+      <span {...props} style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">
+        Technology word cloud
+      </span>
+    {/snippet}
+  </WordCloudLabel>
+
+  <WordCloud3D fontUrl={FONT_URL} />
+  <WordCloudAudio lang="ja-JP">
+    <WordCloudAudioLabel>
+      {#snippet children({ props, isPlaying })}
+        <span {...props} style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">
+          {isPlaying ? '停止' : '再生'}
+        </span>
+      {/snippet}
+    </WordCloudAudioLabel>
+  </WordCloudAudio>
+</WordCloud>
+```
+
+The button inherits the `color` set on `WordCloud` for its icon and background tint. Position it with CSS — for example `position: absolute; bottom: 12px; left: 12px;` — or place it anywhere inside the `WordCloud` tree.
+
+## WordCloudAudioLabel
+
+`WordCloudAudioLabel` gives the play/pause button a fully custom localised accessible label via `aria-labelledby`. Must be placed inside `WordCloudAudio`. If omitted, the `playLabel` / `pauseLabel` props are used as fallback labels.
+
+| Prop | Type | Description |
+| ---- | ---- | ----------- |
+| `children` | `Snippet<[{ props: { id: string }; isPlaying: boolean }]>` | **Required.** Spread `props` onto your label element and use `isPlaying` to set the text. |
+
+```svelte
+<WordCloudAudio lang="ja-JP">
+  <WordCloudAudioLabel>
+    {#snippet children({ props, isPlaying })}
+      <span {...props} style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">
+        {isPlaying ? '停止' : '再生'}
+      </span>
+    {/snippet}
+  </WordCloudAudioLabel>
+</WordCloudAudio>
+```

@@ -1,0 +1,79 @@
+---
+title: WordCloudFlat
+description: Single-layer word cloud with zoom and pan.
+---
+
+import WordCloudFlatDemo from '../../../components/WordCloudFlatDemo.svelte';
+
+`WordCloudFlat` renders all words on a single layer with smooth zoom (`Ctrl + Wheel` or pinch) and pan. Ideal when depth navigation is not needed.
+
+Must be a descendant of `WordCloud`.
+
+<WordCloudFlatDemo client:only="svelte" />
+
+## Props
+
+| Prop | Type | Default | Description |
+| ---- | ---- | ------- | ----------- |
+| `fontUrl` | `string` | — | **Required.** URL of the font file (TTF/OTF/WOFF). For production use, self-host the file — CDN URLs (e.g. Google Fonts) may change. |
+| `maxZoom` | `number` | `2.0` | Maximum zoom level (minimum is always 1). |
+| `layout` | `WordCloudFlatLayout` | `{}` | Layout and sizing options (see below). |
+| `a11y` | `WordCloudFlatA11y` | `{}` | Accessibility labels and ARIA text (see below). |
+| `onWordClick` | `(word: WordItem) => void` | — | Called when a word is clicked. |
+
+### `layout`
+
+| Key | Type | Default | Description |
+| --- | ---- | ------- | ----------- |
+| `fontSizeContrast` | `number` | `2.0` | Power-curve exponent. Higher = top words dominate more; lower = more uniform sizes. |
+| `topWordArea` | `number` | `0.22` | Fraction of viewport area targeted by the largest word. |
+| `randomness` | `number` | `0.5` | Randomness applied to word placement. `0` = grid-like, `1` = maximum scatter. |
+
+### `a11y`
+
+| Key | Type | Default | Description |
+| --- | ---- | ------- | ----------- |
+| `zoomValueText` | `(zoom: number) => string` | `` (z) => `${z.toFixed(1)}x` `` | `aria-valuetext` for the built-in zoom slider. Use for localisation. |
+| `zoomLabel` | `string` | `'Zoom'` | Accessible label text for the zoom slider. |
+| `panHint` | `string` | `'Arrow keys to pan'` | Short visible hint shown inside the keyboard pan control when focused. |
+| `panLabel` | `string` | `'Pan view. Use arrow keys to move.'` | Screen-reader description for the keyboard pan control button. |
+| `resetPanLabel` | `string` | `'Reset pan (double-click)'` | Screen-reader label for the reset pan button. |
+
+## Usage
+
+```svelte
+<script lang="ts">
+  import { WordCloud, WordCloudFlat, WordCloudLabel } from '@shamokit/svelte-wordcloud';
+  import type { WordItem } from '@shamokit/svelte-wordcloud';
+
+  const FONT_URL =
+    'https://fonts.gstatic.com/s/notosansjp/v56/-F6jfjtqLzI2JPCgQBnw7HFyzSD-AsregP8VFBEj75s.ttf';
+
+  const words: WordItem<{ link?: string }>[] = [
+    { word: 'Svelte',     counts: 120, link: 'https://svelte.dev' },
+    { word: 'TypeScript', counts: 95,  link: 'https://www.typescriptlang.org' },
+    { word: 'Vite',       counts: 80,  link: 'https://vitejs.dev' },
+    { word: 'Three.js',   counts: 70,  link: 'https://threejs.org' },
+    { word: 'WebGL',      counts: 60 },
+    { word: 'Threlte',    counts: 55,  link: 'https://threlte.xyz' },
+    // add more words...
+  ];
+
+  function handleWordClick(word: WordItem<{ link?: string }>) {
+    if (word.link) window.open(word.link, '_blank');
+  }
+</script>
+
+<WordCloud data={words} --wc-background="#0d1a0d" --wc-color="#a8e6a3">
+  <WordCloudLabel>
+    {#snippet label({ props })}
+      <span {...props} style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">
+        Technology word cloud
+      </span>
+    {/snippet}
+  </WordCloudLabel>
+
+  <WordCloudFlat fontUrl={FONT_URL} onWordClick={handleWordClick} />
+</WordCloud>
+```
+

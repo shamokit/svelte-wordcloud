@@ -1,0 +1,77 @@
+---
+title: WordCloudAudio
+description: ワードクラウドデータのテキスト読み上げ再生ボタン。
+---
+
+import WordCloudAudioDemo from '../../../../components/WordCloudAudioDemo.svelte';
+
+`WordCloudAudio` はブラウザの Web Speech API を使ってワードクラウドのデータを読み上げる再生/停止ボタンをレンダリングします。ワードはシャッフルされて順番に読み上げられ、音量は各ワードの `counts` 値に比例します。ブラウザが `speechSynthesis` をサポートしていない場合、ボタンは自動的に非表示になります。
+
+`WordCloud` の子孫要素である必要があります。
+
+<WordCloudAudioDemo client:only="svelte" />
+
+## Props
+
+| Prop | 型 | デフォルト | 説明 |
+| ---- | -- | ---------- | ---- |
+| `lang` | `string` | document の言語 | `SpeechSynthesisUtterance` に渡す BCP 47 言語タグ（例: `'ja-JP'`、`'en-US'`）。 |
+| `gap` | `number` | `60` | ワード間の無音時間（ミリ秒）。 |
+| `rate` | `number` | `2.0` | `SpeechSynthesisUtterance` に渡す読み上げ速度。 |
+| `playLabel` | `string` | `'Play'` | 停止中のボタンのアクセシブルラベル。`WordCloudAudioLabel` を使用しない場合のフォールバック。 |
+| `pauseLabel` | `string` | `'Pause'` | 再生中のボタンのアクセシブルラベル。`WordCloudAudioLabel` を使用しない場合のフォールバック。 |
+| `children` | `Snippet` | — | `WordCloudAudioLabel` をここに配置すると、`playLabel`/`pauseLabel` の代わりに完全にカスタムなローカライズラベルを `aria-labelledby` 経由で提供できます。 |
+
+## 使い方
+
+```svelte
+<script lang="ts">
+  import {
+    WordCloud, WordCloud3D,
+    WordCloudLabel, WordCloudAudio, WordCloudAudioLabel,
+  } from '@shamokit/svelte-wordcloud';
+</script>
+
+<WordCloud data={words}>
+  <WordCloudLabel>
+    {#snippet label({ props })}
+      <span {...props} style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">
+        テクノロジーワードクラウド
+      </span>
+    {/snippet}
+  </WordCloudLabel>
+
+  <WordCloud3D fontUrl={FONT_URL} />
+  <WordCloudAudio lang="ja-JP">
+    <WordCloudAudioLabel>
+      {#snippet children({ props, isPlaying })}
+        <span {...props} style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">
+          {isPlaying ? '停止' : '再生'}
+        </span>
+      {/snippet}
+    </WordCloudAudioLabel>
+  </WordCloudAudio>
+</WordCloud>
+```
+
+ボタンはアイコンと背景色に `--wc-color` を継承します。CSS でお好みの位置に配置してください。例: `position: absolute; bottom: 12px; left: 12px;`
+
+## WordCloudAudioLabel
+
+`WordCloudAudioLabel` は再生/停止ボタンに `aria-labelledby` 経由で完全にカスタムなローカライズラベルを付与します。`WordCloudAudio` の内部に配置してください。省略した場合は `playLabel` / `pauseLabel` プロップがフォールバックラベルとして使用されます。
+
+| Prop | 型 | 説明 |
+| ---- | -- | ---- |
+| `children` | `Snippet<[{ props: { id: string }; isPlaying: boolean }]>` | **必須。** `props` をラベル要素にスプレッドし、`isPlaying` でテキストを切り替えてください。 |
+
+```svelte
+<WordCloudAudio lang="ja-JP">
+  <WordCloudAudioLabel>
+    {#snippet children({ props, isPlaying })}
+      <span {...props} style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">
+        {isPlaying ? '停止' : '再生'}
+      </span>
+    {/snippet}
+  </WordCloudAudioLabel>
+</WordCloudAudio>
+```

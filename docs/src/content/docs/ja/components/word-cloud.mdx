@@ -1,0 +1,63 @@
+---
+title: WordCloud
+description: ルートコンテキストプロバイダーコンポーネント。
+---
+
+`WordCloud` はすべての子コンポーネントに共有状態を提供するルートラッパーです。`WordCloud3D`、`WordCloudFlat`、およびすべての UI コンポーネントの祖先要素である必要があります。
+
+## Props
+
+| Prop | 型 | デフォルト | 説明 |
+| ---- | -- | ---------- | ---- |
+| `data` | `WordItem[]` | `[]` | 表示するワードの配列。 |
+| `scrollbarOrientation` | `'vertical' \| 'horizontal'` | `'vertical'` | 子の表示コンポーネントで共有される深度・ズームスクロールバーの向き。 |
+
+## 型
+
+```ts
+type WordItem<T extends Record<string, unknown> = {}> = {
+  word: string;
+  counts: number;
+  color?: string;  // ワードごとの色指定。未設定時は --wc-color にフォールバック。
+} & T;
+```
+
+型パラメーターを使うことで `word`、`counts`、`color` 以外のフィールドも追加でき、`onWordClick` コールバック内でも型安全にアクセスできます。
+
+```ts
+// link フィールドを持つカスタム型でワードを定義
+const words: WordItem<{ link?: string }>[] = [
+  { word: 'Svelte', counts: 120, link: 'https://svelte.dev' },
+  { word: 'WebGL',  counts: 60 },
+];
+
+// コールバック内でも型付きフィールドにアクセス可能
+function handleWordClick(word: WordItem<{ link?: string }>) {
+  if (word.link) window.open(word.link, '_blank');
+}
+```
+
+## CSS 変数
+
+ビジュアルプロパティは CSS カスタムプロパティで上書きできます。`<WordCloud>` コンポーネントに直接設定してください。
+
+```svelte
+<WordCloud --wc-canvas-gap="8px" --wc-indicator-font-size="12px" ...>
+```
+
+| 変数 | デフォルト | 説明 |
+| ---- | ---------- | ---- |
+| `--wc-color` | `currentColor` | ワードと UI 要素（スクロールバー、インジケーター、オーディオボタン）のメインカラー。未設定時は `currentColor` を継承。個々のワードは `WordItem.color` で上書き可能。 |
+| `--wc-background` | `transparent` | キャンバスとスクロールバーエリアの背景色。 |
+| `--wc-aspect-ratio` | `auto` | キャンバスのアスペクト比。例: `16 / 9`。 |
+| `--wc-canvas-gap` | `0px` | キャンバスとスクロールバー列の間のギャップ。 |
+| `--wc-scrollbar-padding` | `8px` | スクロールバー列のパディング（水平モードでは inline、垂直モードでは block）。 |
+| `--wc-scrollbar-gap` | `4px` | スクロールバー列内のアイテム間ギャップ。 |
+| `--wc-indicator-font-size` | `10px` | 深度・ズームインジケーターテキストのフォントサイズ。 |
+| `--wc-thumb-size` | `32px` | スクロールバーサムのヒットエリアの幅と高さ。 |
+| `--wc-dot-size` | `7px` | スクロールバードットの直径。 |
+| `--wc-dot-color` | `wc-color @ 70%` | スクロールバートラックドットの色。 |
+| `--wc-track-opacity` | `0.3` | 通常時のスクロールバートラックラインの不透明度。`0` にするとホバーまで非表示。 |
+| `--wc-thumb-color` | `wc-dot-color` | スクロールバーサムドットの塗りつぶし色。 |
+| `--wc-thumb-color-hover` | `wc-color @ 15% + #000` | ホバー・フォーカス時のサムの塗りつぶし色。 |
+| `--wc-thumb-ring-color-hover` | `wc-color` | ホバー・フォーカス時のサムのリング色。 |

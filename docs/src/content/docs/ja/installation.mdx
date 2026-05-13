@@ -1,0 +1,40 @@
+---
+title: インストール
+description: Svelte 5 プロジェクトへの svelte-wordcloud のインストールと設定方法。
+---
+
+## インストール
+
+```sh
+npm install @shamokit/svelte-wordcloud three @threlte/core @threlte/extras
+```
+
+```sh
+pnpm add @shamokit/svelte-wordcloud three @threlte/core @threlte/extras
+```
+
+## ピア依存関係
+
+| パッケージ | バージョン |
+| ---------- | ---------- |
+| svelte | ^5.0.0 |
+| three | >=0.160.0 |
+| @threlte/core | ^8.0.0 |
+| @threlte/extras | ^9.0.0 |
+
+## Vite / SvelteKit の設定
+
+troika-three-text は内部で Web Worker を使用しています。Vite が正しくプリバンドルできるよう `optimizeDeps` に追加してください。
+
+```ts
+// vite.config.ts
+import { sveltekit } from '@sveltejs/kit/vite';
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  plugins: [sveltekit()],
+  optimizeDeps: {
+    include: ['troika-three-text'],
+  },
+});
+```

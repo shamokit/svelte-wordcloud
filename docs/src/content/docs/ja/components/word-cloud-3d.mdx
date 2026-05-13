@@ -1,0 +1,80 @@
+---
+title: WordCloud3D
+description: 3D マルチレイヤーワードクラウドコンポーネント。
+---
+
+import WordCloud3DDemo from '../../../../components/WordCloud3DDemo.svelte';
+
+`WordCloud3D` は WebGL（Three.js / Threlte 経由）を使って複数の深度レイヤーにワードをレンダリングします。`Ctrl + Wheel`、ピンチズーム、またはビルトインの深度スクロールバーでレイヤー間を移動できます（レイヤーが 1 つの場合はスクロールバーは自動的に非表示になります）。
+
+`WordCloud` の子孫要素である必要があります。
+
+<WordCloud3DDemo client:only="svelte" />
+
+## Props
+
+| Prop | 型 | デフォルト | 説明 |
+| ---- | -- | ---------- | ---- |
+| `fontUrl` | `string` | — | **必須。** フォントファイルのURL（TTF/OTF/WOFF）。本番環境ではファイルをセルフホストしてください。CDN URL（Google Fonts など）はバージョン番号が変更される可能性があります。 |
+| `wheelScrollSpeed` | `number` | `1` | `Ctrl + Wheel` とピンチズームの速度倍率。 |
+| `layout` | `WordCloud3DLayout` | `{}` | 配置・サイズに関するオプション（下記参照）。 |
+| `a11y` | `WordCloud3DA11y` | `{}` | アクセシビリティラベルと ARIA テキスト（下記参照）。 |
+| `onWordClick` | `(word: WordItem) => void` | — | ワードがクリックされたときに呼び出されます。 |
+
+### `layout`
+
+| キー | 型 | デフォルト | 説明 |
+| ---- | -- | ---------- | ---- |
+| `layerSpacing` | `number` | `12` | 隣接レイヤー間の Z 距離（Three.js ワールド単位）。 |
+| `fontSizeContrast` | `number` | `2.0` | べき乗カーブの指数。大きいほど上位ワードが突出して大きくなり、小さいほど均一なサイズになります。 |
+| `topWordArea` | `number` | `0.22` | 最大ワードが占めるビューポート面積の割合。 |
+| `randomness` | `number` | `0.5` | 配置のランダム性。`0` = グリッド状、`1` = 最大散布。 |
+
+### `a11y`
+
+| キー | 型 | デフォルト | 説明 |
+| ---- | -- | ---------- | ---- |
+| `depthValueText` | `(current: number, total: number) => string` | `` (c, t) => `Layer ${c} / ${t}` `` | ビルトイン深度スライダーの `aria-valuetext`。ローカライズ用。 |
+| `depthLabel` | `string` | `'Depth'` | 深度スライダーのアクセシブルラベルテキスト。 |
+| `panHint` | `string` | `'Arrow keys to pan'` | キーボードパンコントロールがフォーカスされたときに表示される短いヒントテキスト。 |
+| `panLabel` | `string` | `'Pan camera. Use arrow keys to move the view.'` | キーボードパンコントロールボタンのスクリーンリーダー向け説明。 |
+| `resetPanLabel` | `string` | `'Reset pan (double-click)'` | パンリセットボタンのスクリーンリーダー向けラベル。 |
+
+## 使い方
+
+```svelte
+<script lang="ts">
+  import { WordCloud, WordCloud3D, WordCloudLabel } from '@shamokit/svelte-wordcloud';
+  import type { WordItem } from '@shamokit/svelte-wordcloud';
+
+  const FONT_URL =
+    'https://fonts.gstatic.com/s/notosansjp/v56/-F6jfjtqLzI2JPCgQBnw7HFyzSD-AsregP8VFBEj75s.ttf';
+
+  const words: WordItem<{ link?: string }>[] = [
+    { word: 'Svelte',     counts: 120, link: 'https://svelte.dev' },
+    { word: 'TypeScript', counts: 95,  link: 'https://www.typescriptlang.org' },
+    { word: 'Vite',       counts: 80,  link: 'https://vitejs.dev' },
+    { word: 'Three.js',   counts: 70,  link: 'https://threejs.org' },
+    { word: 'WebGL',      counts: 60 },
+    { word: 'Threlte',    counts: 55,  link: 'https://threlte.xyz' },
+    // 他のワードを追加...
+  ];
+
+  function handleWordClick(word: WordItem<{ link?: string }>) {
+    if (word.link) window.open(word.link, '_blank');
+  }
+</script>
+
+<WordCloud data={words} --wc-background="#0d0d1a" --wc-color="#7ec8e3">
+  <WordCloudLabel>
+    {#snippet label({ props })}
+      <span {...props} style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">
+        テクノロジーワードクラウド
+      </span>
+    {/snippet}
+  </WordCloudLabel>
+
+  <WordCloud3D fontUrl={FONT_URL} onWordClick={handleWordClick} />
+</WordCloud>
+```
+

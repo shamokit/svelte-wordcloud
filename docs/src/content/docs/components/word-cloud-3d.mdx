@@ -1,0 +1,80 @@
+---
+title: WordCloud3D
+description: 3D multi-layer word cloud component.
+---
+
+import WordCloud3DDemo from '../../../components/WordCloud3DDemo.svelte';
+
+`WordCloud3D` renders words across multiple depth layers using WebGL (Three.js via Threlte). The viewer can navigate layers with `Ctrl + Wheel`, pinch-to-zoom, or the built-in depth scrollbar (rendered automatically; hidden when there is only one layer).
+
+Must be a descendant of `WordCloud`.
+
+<WordCloud3DDemo client:only="svelte" />
+
+## Props
+
+| Prop | Type | Default | Description |
+| ---- | ---- | ------- | ----------- |
+| `fontUrl` | `string` | — | **Required.** URL of the font file (TTF/OTF/WOFF). For production use, self-host the file — CDN URLs (e.g. Google Fonts) may change. |
+| `wheelScrollSpeed` | `number` | `1` | Multiplier for `Ctrl + Wheel` and pinch-zoom speed. |
+| `layout` | `WordCloud3DLayout` | `{}` | Layout and sizing options (see below). |
+| `a11y` | `WordCloud3DA11y` | `{}` | Accessibility labels and ARIA text (see below). |
+| `onWordClick` | `(word: WordItem) => void` | — | Called when a word is clicked. |
+
+### `layout`
+
+| Key | Type | Default | Description |
+| --- | ---- | ------- | ----------- |
+| `layerSpacing` | `number` | `12` | Z-distance between adjacent layers (Three.js world units). |
+| `fontSizeContrast` | `number` | `2.0` | Power-curve exponent. Higher = top words dominate more; lower = more uniform sizes. |
+| `topWordArea` | `number` | `0.22` | Fraction of viewport area targeted by the largest word. |
+| `randomness` | `number` | `0.5` | Randomness applied to word placement. `0` = grid-like, `1` = maximum scatter. |
+
+### `a11y`
+
+| Key | Type | Default | Description |
+| --- | ---- | ------- | ----------- |
+| `depthValueText` | `(current: number, total: number) => string` | `` (c, t) => `Layer ${c} / ${t}` `` | `aria-valuetext` for the built-in depth slider. Use for localisation. |
+| `depthLabel` | `string` | `'Depth'` | Accessible label text for the depth slider. |
+| `panHint` | `string` | `'Arrow keys to pan'` | Short visible hint shown inside the keyboard pan control when focused. |
+| `panLabel` | `string` | `'Pan camera. Use arrow keys to move the view.'` | Screen-reader description for the keyboard pan control button. |
+| `resetPanLabel` | `string` | `'Reset pan (double-click)'` | Screen-reader label for the reset pan button. |
+
+## Usage
+
+```svelte
+<script lang="ts">
+  import { WordCloud, WordCloud3D, WordCloudLabel } from '@shamokit/svelte-wordcloud';
+  import type { WordItem } from '@shamokit/svelte-wordcloud';
+
+  const FONT_URL =
+    'https://fonts.gstatic.com/s/notosansjp/v56/-F6jfjtqLzI2JPCgQBnw7HFyzSD-AsregP8VFBEj75s.ttf';
+
+  const words: WordItem<{ link?: string }>[] = [
+    { word: 'Svelte',     counts: 120, link: 'https://svelte.dev' },
+    { word: 'TypeScript', counts: 95,  link: 'https://www.typescriptlang.org' },
+    { word: 'Vite',       counts: 80,  link: 'https://vitejs.dev' },
+    { word: 'Three.js',   counts: 70,  link: 'https://threejs.org' },
+    { word: 'WebGL',      counts: 60 },
+    { word: 'Threlte',    counts: 55,  link: 'https://threlte.xyz' },
+    // add more words...
+  ];
+
+  function handleWordClick(word: WordItem<{ link?: string }>) {
+    if (word.link) window.open(word.link, '_blank');
+  }
+</script>
+
+<WordCloud data={words} --wc-background="#0d0d1a" --wc-color="#7ec8e3">
+  <WordCloudLabel>
+    {#snippet label({ props })}
+      <span {...props} style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">
+        Technology word cloud
+      </span>
+    {/snippet}
+  </WordCloudLabel>
+
+  <WordCloud3D fontUrl={FONT_URL} onWordClick={handleWordClick} />
+</WordCloud>
+```
+

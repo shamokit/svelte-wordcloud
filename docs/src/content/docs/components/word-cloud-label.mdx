@@ -1,0 +1,36 @@
+---
+title: WordCloudLabel
+description: Provides an accessible label for the word cloud canvas.
+---
+
+**Required** — `WordCloudLabel` gives the canvas an accessible name.
+
+Must be a descendant of `WordCloud`.
+
+## Props
+
+| Prop | Type | Description |
+| ---- | ---- | ----------- |
+| `label` | `Snippet<[{ props: { id: string } }]>` | **Required.** Snippet receiving `props` — spread it onto your label element to attach the correct `id`. |
+
+## Usage
+
+Spread `props` onto an element. The `id` it carries is the same one the canvas reads with `aria-labelledby`, giving the canvas an accessible name.
+
+```svelte
+<script lang="ts">
+  import { WordCloud, WordCloud3D, WordCloudLabel } from '@shamokit/svelte-wordcloud';
+</script>
+
+<WordCloud data={words}>
+  <WordCloudLabel>
+    {#snippet label({ props })}
+      <p {...props} style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">
+        Technology word cloud
+      </p>
+    {/snippet}
+  </WordCloudLabel>
+
+  <WordCloud3D fontUrl={FONT_URL} />
+</WordCloud>
+```

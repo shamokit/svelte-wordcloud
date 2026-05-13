@@ -1,0 +1,58 @@
+---
+title: WordCloudData
+description: スクリーンリーダー向けにワードクラウドのデータをアクセシブルなリストとして提供します。
+---
+
+`WordCloudData` はワードクラウドのデータをソート済みリストとして DOM に展開します。Canvas はスクリーンリーダーが解釈できないグラフィック要素であるため、視覚的に非表示のワードリストを追加することで、支援技術を使用するユーザーもコンテンツにアクセスできるようになります。
+
+`WordCloud` の子孫要素である必要があります。
+
+## Props
+
+| Prop | 型 | 説明 |
+| ---- | -- | ---- |
+| `children` | `Snippet<[{ data: WordItem<T>[] }]>` | **必須。** `data`（`counts` 降順でソートされた `WordItem` 配列）を受け取るスニペット。マークアップに合わせて自由にリストをレンダリングしてください。 |
+
+## 使い方
+
+視覚的に非表示のリストをレンダリングします。`data` 配列は `counts` 降順であらかじめソートされているため、最も目立つワードが先頭になります。
+
+```svelte
+<script lang="ts">
+  import { WordCloud, WordCloud3D, WordCloudLabel, WordCloudData } from '@shamokit/svelte-wordcloud';
+  import type { WordItem } from '@shamokit/svelte-wordcloud';
+
+  const words: WordItem<{ link?: string }>[] = [...];
+</script>
+
+<WordCloud data={words}>
+  <WordCloudLabel>
+    {#snippet label({ props })}
+      <span {...props} style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">
+        テクノロジーワードクラウド
+      </span>
+    {/snippet}
+  </WordCloudLabel>
+
+  <!-- 型パラメーターにより、スニペット内のカスタムフィールドに型安全にアクセスできます -->
+  <WordCloudData<{ link?: string }>>
+    {#snippet children({ data })}
+      <ul style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">
+        {#each data as item (item.word)}
+          <li>
+            {#if item.link}
+              <a href={item.link}>{item.word} ({item.counts})</a>
+            {:else}
+              {item.word} ({item.counts})
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    {/snippet}
+  </WordCloudData>
+
+  <WordCloud3D fontUrl={FONT_URL} />
+</WordCloud>
+```
+
+> **アクセシビリティ注意** — `WordCloud3D` と `WordCloudFlat` がレンダリングする Canvas はスクリーンリーダーに画像として読み上げられます。`WordCloudData` がなければ、視覚に障害のあるユーザーは個々のワードにアクセスできません。完全にアクセシブルなワードクラウドにするために `WordCloudLabel` と組み合わせて使用してください。

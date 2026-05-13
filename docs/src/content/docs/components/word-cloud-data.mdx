@@ -1,0 +1,58 @@
+---
+title: WordCloudData
+description: Provides an accessible list of word cloud data for screen readers.
+---
+
+`WordCloudData` exposes the word cloud's data as a sorted list in the DOM. Because the canvas is a graphical element that screen readers cannot interpret, adding a visually-hidden list of words ensures the content is accessible to users who rely on assistive technology.
+
+Must be a descendant of `WordCloud`.
+
+## Props
+
+| Prop | Type | Description |
+| ---- | ---- | ----------- |
+| `children` | `Snippet<[{ data: WordItem<T>[] }]>` | **Required.** Snippet receiving `data` — an array of `WordItem` sorted by `counts` descending. Render the list however suits your markup. |
+
+## Usage
+
+Render a visually-hidden list. The `data` array is pre-sorted by `counts` descending so the most prominent words come first.
+
+```svelte
+<script lang="ts">
+  import { WordCloud, WordCloud3D, WordCloudLabel, WordCloudData } from '@shamokit/svelte-wordcloud';
+  import type { WordItem } from '@shamokit/svelte-wordcloud';
+
+  const words: WordItem<{ link?: string }>[] = [...];
+</script>
+
+<WordCloud data={words}>
+  <WordCloudLabel>
+    {#snippet label({ props })}
+      <span {...props} style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">
+        Technology word cloud
+      </span>
+    {/snippet}
+  </WordCloudLabel>
+
+  <!-- Type parameter gives typed access to custom fields inside the snippet -->
+  <WordCloudData<{ link?: string }>>
+    {#snippet children({ data })}
+      <ul style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">
+        {#each data as item (item.word)}
+          <li>
+            {#if item.link}
+              <a href={item.link}>{item.word} ({item.counts})</a>
+            {:else}
+              {item.word} ({item.counts})
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    {/snippet}
+  </WordCloudData>
+
+  <WordCloud3D fontUrl={FONT_URL} />
+</WordCloud>
+```
+
+> **Accessibility note** — The canvas rendered by `WordCloud3D` and `WordCloudFlat` is announced as an image by screen readers. Without `WordCloudData`, blind users have no way to access the individual words. Pair it with `WordCloudLabel` for a fully accessible word cloud.

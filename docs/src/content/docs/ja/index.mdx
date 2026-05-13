@@ -1,0 +1,52 @@
+---
+title: イントロダクション
+description: Svelte 向けコンポーザブルなワードクラウドコンポーネントライブラリ。
+hero:
+  title: svelte-wordcloud
+  tagline: Svelte 向けコンポーザブルなワードクラウドコンポーネントライブラリ。
+  actions:
+    - text: はじめる
+      link: /ja/installation/
+      icon: right-arrow
+      variant: primary
+    - text: GitHub
+      link: https://github.com/shamokit/svelte-wordcloud
+      icon: github
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+<CardGrid stagger>
+  <Card title="3D 深度レイヤー" icon="bars">
+    ワードは深度レイヤーに配置されます。`Ctrl + Wheel`、ピンチズーム、またはビルトインのスクロールバーで操作できます。
+  </Card>
+  <Card title="モバイル対応" icon="laptop">
+    ピンチズームと 1 本指パンがタッチデバイスでそのまま動作。マウスやキーボードなしでも直感的に操作できます。
+  </Card>
+  <Card title="アクセシブル" icon="heart">
+    Canvas に `role="img"` と `aria-labelledby` が付与されます。ARIA スライダー、視覚的非表示のワードリスト、テキスト読み上げ機能が標準搭載。
+  </Card>
+  <Card title="柔軟なスタイリング" icon="pencil">
+    CSS カスタムプロパティで色・スペース・レイアウトを制御。設定オブジェクト不要 — CSS だけで完結します。
+  </Card>
+</CardGrid>
+
+## 謝辞
+
+svelte-wordcloud は、2 つの素晴らしいオープンソースプロジェクトの上に成り立っています。
+Threlte と troika-three-text の作者・コントリビューターの皆さんに、心からの感謝を捧げます。
+お二つのライブラリなくして、このライブラリは存在しませんでした。
+
+<CardGrid>
+  <LinkCard
+    title="Threlte"
+    href="https://threlte.xyz/"
+    description="Svelte 向け Three.js コンポーネントライブラリ。"
+  />
+  <LinkCard
+    title="troika-three-text"
+    href="https://github.com/protectwise/troika/tree/main/packages/troika-three-text"
+    description="Three.js 向け高品質 SDF テキストレンダリング。"
+  />
+</CardGrid>

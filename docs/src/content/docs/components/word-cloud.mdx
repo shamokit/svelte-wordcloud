@@ -1,0 +1,65 @@
+---
+title: WordCloud
+description: The root context provider component.
+---
+
+`WordCloud` is the root wrapper that provides shared state to all child components. It must be the ancestor of `WordCloud3D`, `WordCloudFlat`, and all UI components.
+
+## Props
+
+| Prop | Type | Default | Description |
+| ---- | ---- | ------- | ----------- |
+| `data` | `WordItem[]` | `[]` | Array of words to display. |
+| `scrollbarOrientation` | `'vertical' \| 'horizontal'` | `'vertical'` | Orientation of the built-in depth/zoom scrollbar shared by all child display components. |
+
+## Types
+
+```ts
+type WordItem<T extends Record<string, unknown> = {}> = {
+  word: string;
+  counts: number;
+  color?: string;  // Per-word override. Falls back to WordCloud's color prop.
+} & T;
+```
+
+Extra fields beyond `word`, `counts`, and `color` can be added via the type parameter and are available in the `onWordClick` callback:
+
+```ts
+// Define words with a custom `link` field
+const words: WordItem<{ link?: string }>[] = [
+  { word: 'Svelte', counts: 120, link: 'https://svelte.dev' },
+  { word: 'WebGL',  counts: 60 },
+];
+
+// Access the typed field in the callback
+function handleWordClick(word: WordItem<{ link?: string }>) {
+  if (word.link) window.open(word.link, '_blank');
+}
+```
+
+## CSS variables
+
+Visual properties can be overridden with CSS custom properties. Set them directly on the `<WordCloud>` component:
+
+```svelte
+<WordCloud --wc-canvas-gap="8px" --wc-indicator-font-size="12px" ...>
+```
+
+| Variable | Default | Description |
+| -------- | ------- | ----------- |
+| `--wc-color` | `currentColor` | Primary color for words and UI elements (scrollbar, indicator, audio button). Inherits `currentColor` when unset. Individual words can still override with `WordItem.color`. |
+| `--wc-background` | `transparent` | Background of the canvas + scrollbar area. |
+| `--wc-aspect-ratio` | `auto` | Aspect ratio of the canvas. Example: `16 / 9`. |
+| `--wc-canvas-gap` | `0px` | Gap between the canvas and the scrollbar column. |
+| `--wc-scrollbar-padding` | `8px` | Padding of the scrollbar column (inline in horizontal mode, block in vertical mode). |
+| `--wc-scrollbar-gap` | `4px` | Gap between items inside the scrollbar column. |
+| `--wc-indicator-font-size` | `10px` | Font size of the depth / zoom indicator text. |
+| `--wc-thumb-size` | `32px` | Width and height of the scrollbar thumb hit area. |
+| `--wc-dot-size` | `7px` | Diameter of the visible scrollbar dot. |
+| `--wc-dot-color` | `wc-color @ 70%` | Color of the scrollbar track dot. |
+| `--wc-track-opacity` | `0.3` | Opacity of the scrollbar track line at rest. Set to `0` to hide until hover. |
+| `--wc-thumb-color` | `wc-dot-color` | Fill color of the scrollbar thumb dot. |
+| `--wc-thumb-color-hover` | `wc-color @ 15% + #000` | Fill color of the thumb on hover / focus. |
+| `--wc-thumb-ring-color-hover` | `wc-color` | Ring color of the thumb on hover / focus. |
+
+

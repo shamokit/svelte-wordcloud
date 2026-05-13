@@ -1,0 +1,36 @@
+---
+title: WordCloudLabel
+description: ワードクラウドキャンバスにアクセシブルなラベルを提供します。
+---
+
+**必須** — `WordCloudLabel` はキャンバスにアクセシブルな名前を付与するために必要なコンポーネントです。
+
+`WordCloud` の子孫要素である必要があります。
+
+## Props
+
+| Prop | 型 | 説明 |
+| ---- | -- | ---- |
+| `label` | `Snippet<[{ props: { id: string } }]>` | **必須。** `props` を受け取るスニペット。正しい `id` を付与するために、ラベル要素にスプレッドしてください。 |
+
+## 使い方
+
+`props` を要素にスプレッドします。`props` が持つ `id` は、キャンバスが `aria-labelledby` で参照するものと同一です。
+
+```svelte
+<script lang="ts">
+  import { WordCloud, WordCloud3D, WordCloudLabel } from '@shamokit/svelte-wordcloud';
+</script>
+
+<WordCloud data={words}>
+  <WordCloudLabel>
+    {#snippet label({ props })}
+      <p {...props} style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">
+        テクノロジーワードクラウド
+      </p>
+    {/snippet}
+  </WordCloudLabel>
+
+  <WordCloud3D fontUrl={FONT_URL} />
+</WordCloud>
+```
