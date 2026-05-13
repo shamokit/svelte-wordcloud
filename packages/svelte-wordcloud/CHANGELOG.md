@@ -1,5 +1,11 @@
 # @shamokit/svelte-wordcloud
 
+## 0.1.4
+
+### Patch Changes
+
+- [#17](https://github.com/shamokit/svelte-wordcloud/pull/17) [`ee42510`](https://github.com/shamokit/svelte-wordcloud/commit/ee42510305df73f3cf98b2ec16a96bb40ff1cda6) Thanks [@shamokit](https://github.com/shamokit)! - Update documentation URL to Vercel site.
+
 ## 0.1.3
 
 ### Patch Changes
