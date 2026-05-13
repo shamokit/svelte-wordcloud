@@ -14,6 +14,7 @@
     "svelte": "^5.55.2"
   },
   "dependencies": {
+    "@astrojs/vercel": "^10.0.6",
     "@shamokit/svelte-wordcloud": "workspace:*",
     "@threlte/core": "^8.5.9",
     "@threlte/extras": "^9.14.9",

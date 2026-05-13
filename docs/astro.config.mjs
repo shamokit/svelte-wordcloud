@@ -1,12 +1,16 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import svelte from '@astrojs/svelte';
+import vercel from '@astrojs/vercel';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
+  adapter: vercel({
+    webAnalytics: { enabled: true },
+  }),
   integrations: [
     starlight({
       title: 'svelte-wordcloud',
