@@ -1,0 +1,100 @@
+import { DEV } from 'esm-env';
+
+export const CHAR_W_FALLBACK = 0.6;
+
+// Cached at module level so troika-three-text is imported only once across all instances.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let troikaPromise: Promise<any> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getTroika(): Promise<any> {
+	if (!troikaPromise) {
+		// @ts-ignore
+		troikaPromise = import(/* @vite-ignore */ 'troika-three-text').catch((err) => {
+			troikaPromise = null; // allow retry on next measurement
+			throw err;
+		});
+	}
+	return troikaPromise;
+}
+
+/**
+ * Shared reactive font metrics for WordCloud3D and WordCloudFlat.
+ * Call at component initialization; uses Svelte 5 runes internally.
+ *
+ * @param getWords - reactive getter returning the list of unique words to measure
+ * @param getFontUrl - reactive getter returning the font URL
+ */
+export function createFontMetrics(
+	getWords: () => string[],
+	getFontUrl: () => string,
+) {
+	let charH = $state(0.65);
+	let wordWidths = $state<Record<string, number>>({});
+	let wordHalfH = $state<Record<string, number>>({});
+
+	$effect(() => {
+		const words = getWords();
+		if (!words.length) return;
+		const url = getFontUrl();
+		let cancelled = false;
+		let remaining = words.length;
+		const measuredW: Record<string, number> = {};
+		const measuredHH: Record<string, number> = {};
+		getTroika()
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			.then((mod: any) => {
+				if (cancelled) return;
+				for (const word of words) {
+					mod.getTextRenderInfo(
+						{ text: word, font: url, fontSize: 1 },
+						// eslint-disable-next-line @typescript-eslint/no-explicit-any
+						(info: any) => {
+							if (cancelled) return;
+							const vb = info.visibleBounds;
+							if (Array.isArray(vb) && vb.length >= 4) {
+								const visW = vb[2] - vb[0];
+								const halfH = (vb[3] - vb[1]) / 2;
+								if (visW > 0) measuredW[word] = visW;
+								if (halfH > 0) measuredHH[word] = halfH;
+							} else {
+								const w = info.caretPositions?.[word.length * 3];
+								if (typeof w === 'number' && w > 0) measuredW[word] = w;
+							}
+							if (Object.keys(measuredHH).length === 0) {
+								const cap = info.capHeight ?? info.ascender;
+								if (typeof cap === 'number' && cap > 0 && cap < 1.5) charH = cap;
+							}
+							if (--remaining === 0) {
+								wordWidths = { ...measuredW };
+								wordHalfH = { ...measuredHH };
+							}
+						},
+					);
+				}
+			})
+			.catch(() => {
+				if (DEV) {
+					console.warn(
+						'[svelte-wordcloud] Failed to load troika-three-text. ' +
+							'Font metrics will use fallback values. ' +
+							'Check that troika-three-text is installed and included in optimizeDeps.',
+					);
+				}
+			});
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	return {
+		get charH() {
+			return charH;
+		},
+		get wordWidths() {
+			return wordWidths;
+		},
+		get wordHalfH() {
+			return wordHalfH;
+		},
+	};
+}

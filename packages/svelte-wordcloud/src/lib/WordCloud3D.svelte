@@ -8,6 +8,7 @@
 	import PanKeyControl from './PanKeyControl.svelte';
 	import type { WordCloud3DProps, ProcessedWord, WordItem } from './types.js';
 	import { getWCContext } from './WordCloud.svelte';
+	import { createFontMetrics, CHAR_W_FALLBACK } from './fontMetrics.svelte.js';
 
 	const {
 		fontUrl,
@@ -32,72 +33,19 @@
 	const ctx = getWCContext();
 
 	const TAN30 = Math.tan(Math.PI / 6); // tan(30°) = tan(FOV/2) for FOV=60
-	// Fallback character-width ratio used before troika metrics load.
-	const CHAR_W_FALLBACK = 0.6;
 	// Gap between words in CSS pixels. Converted to world units at runtime.
 	const GAP_PX = 16;
 	const TARGET_COVERAGE = 0.5;
 	const MAX_LAYOUT_ATTEMPTS = 5;
 
 	// ── Font metrics ──────────────────────────────────────────────────────────
-	let charH = $state(0.65);
-	// Per-word visible metrics at fontSize=1, from troika's getTextRenderInfo.
-	// wordWidths  – visible full-width  (visibleBounds maxX − minX, no side bearings)
-	// wordHalfH   – visible half-height (visibleBounds span / 2, includes descenders)
-	// Both fall back to CHAR_W_FALLBACK / charH*0.6 until measurements arrive.
-	let wordWidths = $state<Record<string, number>>({});
-	let wordHalfH  = $state<Record<string, number>>({});
-
-	// Measure all unique words in one troika pass.
-	// visibleBounds = [minX, minY, maxX, maxY] at the default (left/baseline) anchor.
-	//   visibleWidth  = maxX − minX  (actual glyph width, side-bearings excluded)
-	//   halfHeight    = (maxY − minY) / 2  (half of cap-to-descender span)
-	// With anchorX="center"/anchorY="middle" the text is centred on (cx, cy), so
-	// hw = visibleWidth/2 and hh = halfHeight are the correct AABB half-extents.
-	$effect(() => {
-		const words = [...new Set(ctx.data.map((d) => d.word))];
-		if (!words.length) return;
-		const url = fontUrl;
-		let cancelled = false;
-		let remaining = words.length;
-		const measuredW: Record<string, number>  = {};
-		const measuredHH: Record<string, number> = {};
-		// @ts-ignore
-		import(/* @vite-ignore */ 'troika-three-text').then((mod: any) => {
-			if (cancelled) return;
-			for (const word of words) {
-				mod.getTextRenderInfo(
-					{ text: word, font: url, fontSize: 1 },
-					(info: any) => {
-						if (cancelled) return;
-						const vb = info.visibleBounds;
-						if (Array.isArray(vb) && vb.length >= 4) {
-							const visW  = vb[2] - vb[0];       // visible full-width
-							const halfH = (vb[3] - vb[1]) / 2; // half of full glyph span
-							if (visW  > 0) measuredW[word]  = visW;
-							if (halfH > 0) measuredHH[word] = halfH;
-						} else {
-							// Fallback: advance width from caretPositions
-							const w = info.caretPositions?.[word.length * 3];
-							if (typeof w === 'number' && w > 0) measuredW[word] = w;
-						}
-						// Also capture capHeight for rawMaxF sizing heuristic
-						if (Object.keys(measuredHH).length === 0) {
-							const cap = info.capHeight ?? info.ascender;
-							if (typeof cap === 'number' && cap > 0 && cap < 1.5) charH = cap;
-						}
-						if (--remaining === 0) {
-							wordWidths = { ...measuredW };
-							wordHalfH  = { ...measuredHH };
-						}
-					},
-				);
-			}
-		});
-		return () => {
-			cancelled = true;
-		};
-	});
+	const metrics = createFontMetrics(
+		() => [...new Set(ctx.data.map((d) => d.word))],
+		() => fontUrl,
+	);
+	const charH       = $derived(metrics.charH);
+	const wordWidths  = $derived(metrics.wordWidths);
+	const wordHalfH   = $derived(metrics.wordHalfH);
 
 	const initLayerSpacing = untrack(() => layerSpacing);
 	const initViewingDist = initLayerSpacing * 0.75;
@@ -388,7 +336,19 @@
 
 	// ── Layout ────────────────────────────────────────────────────────────────
 	function computeLayout(): { words: ProcessedWord[]; numLayers: number } {
-		const data = ctx.data;
+		const raw = ctx.data;
+		const data = raw.filter((d) => {
+			const valid =
+				typeof d.word === 'string' &&
+				d.word.trim().length > 0 &&
+				typeof d.counts === 'number' &&
+				isFinite(d.counts) &&
+				d.counts > 0;
+			if (DEV && !valid) {
+				console.warn('[svelte-wordcloud] Skipping invalid word item:', d);
+			}
+			return valid;
+		});
 		if (!data.length) return { words: [], numLayers: 1 };
 
 		const sqrtCounts = data.map((d) => Math.sqrt(d.counts));
