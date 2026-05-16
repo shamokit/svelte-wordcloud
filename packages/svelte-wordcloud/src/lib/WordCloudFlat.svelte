@@ -8,7 +8,8 @@
 	import PanKeyControl from './PanKeyControl.svelte';
 	import type { WordCloudFlatProps, ProcessedWord, WordItem } from './types.js';
 	import { getWCContext } from './WordCloud.svelte';
-	import { createFontMetrics, CHAR_W_FALLBACK } from './fontMetrics.svelte.js';
+	import { createFontMetrics } from './fontMetrics.svelte.js';
+	import { computeLayoutFlat, type LayoutFlatParams } from './layoutEngine.js';
 
 	const {
 		fontUrl,
@@ -73,362 +74,38 @@
 	// 1 world unit = layoutH / (2 * ry) px → padding (per-word half-gap) = GAP_PX * ry / layoutH
 	const padding = $derived(layoutH > 0 ? (GAP_PX * ry) / layoutH : 0.06);
 
-	// ── Bounding box helpers ──────────────────────────────────────────────────
-	type BBox = { cx: number; cy: number; hw: number; hh: number };
+	// ── Layout (async generator) ──────────────────────────────────────────────
+	let wordLayout = $state<ProcessedWord[]>([]);
 
-	function bboxSize(word: string, fontSize: number) {
-		const w  = wordWidths[word] ?? word.length * CHAR_W_FALLBACK;
-		// fallback half-height: 60 % of capHeight is a good estimate covering most descenders
-		const hh = wordHalfH[word]  ?? charH * 0.6;
-		return {
-			// visibleWidth / 2  (anchorX="center" → text extends ±hw from cx)
-			hw: (w * fontSize) / 2 + padding,
-			// half of glyph span (anchorY="middle" → text extends ±hh from cy)
-			hh: hh * fontSize + padding,
+	$effect(() => {
+		const params: LayoutFlatParams = {
+			data: ctx.data,
+			wordWidths,
+			wordHalfH,
+			charH,
+			rx,
+			ry,
+			padding,
+			fontSizeContrast,
+			topWordArea,
+			randomness,
+			computedWordColor,
 		};
-	}
 
-	// ── Placement ─────────────────────────────────────────────────────────────
-	// Archimedean spiral from the origin. r = spiralStep * √i gives uniform
-	// area density; golden angle breaks rotational symmetry so words don't
-	// align into visible grid lines.
-	const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
-	const MAX_SPIRAL_STEPS = 6000;
+		wordLayout = [];
+		let cancelled = false;
 
-	function placeSpiral(
-		word: string,
-		fontSize: number,
-		rxBound: number,
-		ryBound: number,
-		occupied: BBox[],
-	): { x: number; y: number } | null {
-		const { hw, hh } = bboxSize(word, fontSize);
-		const xMax = rxBound - hw;
-		const yMax = ryBound - hh;
-		if (xMax <= 0 || yMax <= 0) return null;
-
-		// spiralStep must be large enough so that MAX_SPIRAL_STEPS iterations
-		// reach the farthest corner of the valid placement area.
-		// Without this, tiny words have a very fine step that never reaches the edges,
-		// causing false "no placement found" results when space exists in outer regions.
-		const cornerDist = Math.sqrt(xMax * xMax + yMax * yMax);
-		const spiralStep = Math.max(
-			Math.min(hw, hh) * 0.15,
-			cornerDist / Math.sqrt(MAX_SPIRAL_STEPS),
-		);
-
-		for (let i = 0; i < MAX_SPIRAL_STEPS; i++) {
-			const r = spiralStep * Math.sqrt(i);
-			const angle = i * GOLDEN_ANGLE;
-			const x = r * Math.cos(angle);
-			const y = r * Math.sin(angle);
-			if (Math.abs(x) > xMax || Math.abs(y) > yMax) continue;
-			const ok = occupied.every(
-				(p) =>
-					Math.abs(x - p.cx) >= hw + p.hw ||
-					Math.abs(y - p.cy) >= hh + p.hh,
-			);
-			if (ok) return { x, y };
-		}
-		return null;
-	}
-
-	// ── Adjacency-first placement ─────────────────────────────────────────────
-	// Collects x-edge and y-edge positions from every placed word and tries all
-	// combinations in increasing distance-to-origin order. This guarantees that
-	// every word ends up directly touching at least one neighbour, which produces
-	// much tighter packing and eliminates the "armpit" gaps that appear beside
-	// vertical stacks when using a pure spiral.
-	// Falls back to placeSpiral when no adjacent position fits.
-	function placeAdjacent(
-		word: string,
-		fontSize: number,
-		rxBound: number,
-		ryBound: number,
-		occupied: BBox[],
-	): { x: number; y: number } | null {
-		const { hw, hh } = bboxSize(word, fontSize);
-		const xMax = rxBound - hw;
-		const yMax = ryBound - hh;
-		if (xMax <= 0 || yMax <= 0) return null;
-
-		function isValid(x: number, y: number): boolean {
-			if (Math.abs(x) > xMax || Math.abs(y) > yMax) return false;
-			return occupied.every(
-				(p) =>
-					Math.abs(x - p.cx) >= hw + p.hw ||
-					Math.abs(y - p.cy) >= hh + p.hh,
-			);
-		}
-
-		function tryList(
-			list: Array<{ x: number; y: number; d2: number }>,
-		): { x: number; y: number } | null {
-			list.sort((a, b) => a.d2 - b.d2);
-			for (const { x, y } of list) {
-				if (isValid(x, y)) return { x, y };
+		(async () => {
+			for await (const partial of computeLayoutFlat(params)) {
+				if (cancelled) return;
+				wordLayout = partial;
 			}
-			return null;
-		}
+		})();
 
-		// First word always goes to the origin.
-		if (occupied.length === 0) {
-			return isValid(0, 0) ? { x: 0, y: 0 } : null;
-		}
-
-		// ── Phase 1: direct-touching positions ──────────────────────────────────
-		// Phase 1a (jittered + diagonal) is tried first to break grid alignment.
-		// Phase 1b (exact axis-aligned) is the reliable fallback so no valid
-		// spot is ever missed due to jitter landing in an occupied cell.
-		// Sorting by d2 is done within each sub-phase so jitter is always
-		// preferred over exact positions (previously they were mixed in one list,
-		// letting exact candidates with smaller d2 win near the origin).
-		{
-			const JITTER = randomness;
-			const jit = (max: number) => (Math.random() - 0.5) * 2 * max;
-			const jitCands: Array<{ x: number; y: number; d2: number }> = [];
-			const exactCands: Array<{ x: number; y: number; d2: number }> = [];
-			for (const p of occupied) {
-				const rx_ = p.cx + p.hw + hw;
-				const lx_ = p.cx - p.hw - hw;
-				const ty_ = p.cy + p.hh + hh;
-				const by_ = p.cy - p.hh - hh;
-				// 1a — jittered axis-aligned + diagonal corner-touch
-				for (const [x, y] of [
-					[rx_, p.cy + jit(hh * JITTER)],
-					[lx_, p.cy + jit(hh * JITTER)],
-					[p.cx + jit(hw * JITTER), ty_],
-					[p.cx + jit(hw * JITTER), by_],
-					[rx_, ty_], [rx_, by_],
-					[lx_, ty_], [lx_, by_],
-				] as [number, number][]) {
-					if (Math.abs(x) <= xMax && Math.abs(y) <= yMax)
-						jitCands.push({ x, y, d2: x * x + y * y });
-				}
-				// 1b — exact axis-aligned fallback
-				for (const [x, y] of [
-					[rx_, p.cy], [lx_, p.cy],
-					[p.cx, ty_], [p.cx, by_],
-				] as [number, number][]) {
-					if (Math.abs(x) <= xMax && Math.abs(y) <= yMax)
-						exactCands.push({ x, y, d2: x * x + y * y });
-				}
-			}
-			const hit = tryList(jitCands) ?? tryList(exactCands);
-			if (hit) return hit;
-		}
-
-		// ── Phase 2: cross-aligned positions ─────────────────────────────────
-		// Touch word p on one axis while aligning the other axis with word q's
-		// centre. This fills "armpit" gaps beside vertical/horizontal stacks
-		// that Phase 1 misses (e.g. beside a column of same-width words).
-		// Limit to the N_CROSS nearest words for p to keep time bounded.
-		{
-			const N_CROSS = Math.min(20, occupied.length);
-			const nearest = occupied
-				.map((p) => ({ p, d2: p.cx * p.cx + p.cy * p.cy }))
-				.sort((a, b) => a.d2 - b.d2)
-				.slice(0, N_CROSS)
-				.map((o) => o.p);
-
-			const cands: Array<{ x: number; y: number; d2: number }> = [];
-			for (const p of nearest) {
-				const rx1 = p.cx + p.hw + hw;
-				const lx1 = p.cx - p.hw - hw;
-				const ty1 = p.cy + p.hh + hh;
-				const by1 = p.cy - p.hh - hh;
-				for (const q of occupied) {
-					if (q === p) continue;
-					// Touch p on right/left, y-align with q centre
-					for (const x of [rx1, lx1]) {
-						if (Math.abs(x) <= xMax && Math.abs(q.cy) <= yMax)
-							cands.push({ x, y: q.cy, d2: x * x + q.cy * q.cy });
-					}
-					// Touch p on top/bottom, x-align with q centre
-					for (const y of [ty1, by1]) {
-						if (Math.abs(q.cx) <= xMax && Math.abs(y) <= yMax)
-							cands.push({ x: q.cx, y, d2: q.cx * q.cx + y * y });
-					}
-				}
-			}
-			const hit = tryList(cands);
-			if (hit) return hit;
-		}
-
-		// Fallback: Archimedean spiral
-		return placeSpiral(word, fontSize, rxBound, ryBound, occupied);
-	}
-
-	// ── Compaction ────────────────────────────────────────────────────────────
-	// After the initial adjacency placement, pull each word further toward the
-	// origin until it would overlap a neighbour. Iterating inner-to-outer lets
-	// each word slide into gaps freed by the words just inside it.
-	function compactLayer(words: ProcessedWord[], iterations = 20): void {
-		type B = { cx: number; cy: number; hw: number; hh: number };
-		const boxes: B[] = words.map((w) => {
-			const { hw, hh } = bboxSize(w.word, w.fontSize);
-			return { cx: w.x, cy: w.y, hw, hh };
-		});
-
-		function noOverlap(i: number, tx: number, ty: number): boolean {
-			const b = boxes[i];
-			return (
-				Math.abs(tx) <= rx - b.hw &&
-				Math.abs(ty) <= ry - b.hh &&
-				boxes.every(
-					(p, j) =>
-						j === i ||
-						Math.abs(tx - p.cx) >= b.hw + p.hw ||
-						Math.abs(ty - p.cy) >= b.hh + p.hh,
-				)
-			);
-		}
-
-		for (let iter = 0; iter < iterations; iter++) {
-			const order = boxes
-				.map((b, i) => ({ d: b.cx * b.cx + b.cy * b.cy, i }))
-				.sort((a, b) => a.d - b.d)
-				.map((o) => o.i);
-
-			for (const i of order) {
-				const b = boxes[i];
-
-				// ── Radial: slide toward (0, 0) ───────────────────────────────
-				if (b.cx * b.cx + b.cy * b.cy > 1e-4) {
-					let lo = 0, hi = 1;
-					for (let bs = 0; bs < 14; bs++) {
-						const mid = (lo + hi) / 2;
-						if (noOverlap(i, b.cx * (1 - mid), b.cy * (1 - mid))) lo = mid;
-						else hi = mid;
-					}
-					if (lo > 1e-4) { b.cx *= 1 - lo; b.cy *= 1 - lo; }
-				}
-
-				// ── Horizontal: slide cx toward 0, cy fixed ───────────────────
-				if (Math.abs(b.cx) > 1e-4) {
-					const dir = -Math.sign(b.cx);
-					let lo = 0, hi = Math.abs(b.cx);
-					for (let bs = 0; bs < 14; bs++) {
-						const mid = (lo + hi) / 2;
-						if (noOverlap(i, b.cx + dir * mid, b.cy)) lo = mid;
-						else hi = mid;
-					}
-					if (lo > 1e-4) b.cx += dir * lo;
-				}
-
-				// ── Vertical: slide cy toward 0, cx fixed ─────────────────────
-				if (Math.abs(b.cy) > 1e-4) {
-					const dir = -Math.sign(b.cy);
-					let lo = 0, hi = Math.abs(b.cy);
-					for (let bs = 0; bs < 14; bs++) {
-						const mid = (lo + hi) / 2;
-						if (noOverlap(i, b.cx, b.cy + dir * mid)) lo = mid;
-						else hi = mid;
-					}
-					if (lo > 1e-4) b.cy += dir * lo;
-				}
-
-				words[i].x = b.cx;
-				words[i].y = b.cy;
-			}
-		}
-	}
-
-	// ── Single-layer layout ───────────────────────────────────────────────────
-	// Iteratively reduces maxF until all words fit in one layer.
-	// minF is kept smaller than in WordCloud3D so there is more room to shrink.
-	function computeLayout(): ProcessedWord[] {
-		const raw = ctx.data;
-		const data = raw.filter((d) => {
-			const valid =
-				typeof d.word === 'string' &&
-				d.word.trim().length > 0 &&
-				typeof d.counts === 'number' &&
-				isFinite(d.counts) &&
-				d.counts > 0;
-			if (DEV && !valid) {
-				console.warn('[svelte-wordcloud] Skipping invalid word item:', d);
-			}
-			return valid;
-		});
-		if (!data.length) return [];
-
-		const sqrtCounts = data.map((d) => Math.sqrt(d.counts));
-		const sqrtMin = Math.min(...sqrtCounts);
-		const sqrtMax = Math.max(...sqrtCounts);
-		const sorted = [...data].sort((a, b) => b.counts - a.counts);
-
-		const viewArea = 4 * rx * ry;
-		const topWord = sorted[0]?.word ?? '';
-		const topWordW = Math.max(
-			wordWidths[topWord] ?? topWord.length * CHAR_W_FALLBACK,
-			4 * CHAR_W_FALLBACK,
-		);
-		const portraitScale = Math.min(1.5, Math.max(1, ry / rx));
-
-		const rawMaxF = Math.sqrt(
-			(topWordArea * viewArea) / (topWordW * charH),
-		);
-		const maxFByW = (portraitScale * rx) / topWordW;
-		const maxFByH = ry / charH;
-		// Smaller floor than WordCloud3D (0.04 vs 0.08) so more words can fit.
-		const minF = Math.min(rx, ry) * 0.04;
-		let currentMaxF = Math.min(rawMaxF, maxFByW, maxFByH);
-
-		function packAttempt(maxF: number): ProcessedWord[] | null {
-			const withSizes = sorted.map((item) => {
-				const sqrtVal = Math.sqrt(item.counts);
-				let fontSize: number;
-				if (sqrtMin === sqrtMax) {
-					fontSize = (minF + maxF) / 2;
-				} else {
-					const t = (sqrtVal - sqrtMin) / (sqrtMax - sqrtMin);
-					fontSize = minF + Math.pow(t, fontSizeContrast) * (maxF - minF);
-				}
-				const itemW = wordWidths[item.word] ?? item.word.length * CHAR_W_FALLBACK;
-				const maxFByLen = (portraitScale * rx) / itemW;
-				fontSize = Math.min(fontSize, maxFByLen);
-				return { item, fontSize, color: item.color ?? computedWordColor };
-			});
-
-			const occupied: BBox[] = [];
-			const result: ProcessedWord[] = [];
-
-			for (const { item, fontSize, color } of withSizes) {
-				const { hw, hh } = bboxSize(item.word, fontSize);
-				const pos = placeAdjacent(item.word, fontSize, rx, ry, occupied);
-				if (pos === null) return null; // word didn't fit → retry with smaller fonts
-				occupied.push({ cx: pos.x, cy: pos.y, hw, hh });
-				result.push({
-					...item,
-					fontSize,
-					layerIndex: 0,
-					x: pos.x,
-					y: pos.y,
-					z: 0,
-					color,
-				});
-			}
-			return result;
-		}
-
-		// Shrink maxF up to 25 times (≈ 0.85^25 ≈ 1.7% of original) until all fit.
-		for (let i = 0; i < 25; i++) {
-			const result = packAttempt(currentMaxF);
-			if (result !== null) {
-				compactLayer(result);
-				return result;
-			}
-			currentMaxF *= 0.85;
-		}
-
-		// Fallback: force-place with the current tiny fonts (may have a few overlaps)
-		const fallback = packAttempt(currentMaxF) ?? [];
-		compactLayer(fallback);
-		return fallback;
-	}
-
-	const wordLayout = $derived(computeLayout());
+		return () => {
+			cancelled = true;
+		};
+	});
 
 	// Flat always has exactly 1 layer — assign directly at init (no $effect needed)
 	ctx.numLayers = 1;
@@ -580,7 +257,6 @@
 	function handleWheel(e: WheelEvent) {
 		if (!e.ctrlKey) return;
 		e.preventDefault();
-		// Smooth zoom: scroll-down = zoom out, scroll-up = zoom in
 		const factor = e.deltaY > 0 ? 1 / 1.12 : 1.12;
 		applyZoom(zoom * factor);
 	}
