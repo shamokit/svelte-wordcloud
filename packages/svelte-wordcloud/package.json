@@ -62,7 +62,7 @@
     "@threlte/extras": "^9.14.9",
     "@types/three": "^0.184.0",
     "publint": "^0.3.18",
-    "svelte": "^5.55.2",
+    "svelte": "^5.55.7",
     "svelte-check": "^4.4.6",
     "three": "^0.184.0",
     "typescript": "^6.0.2",
