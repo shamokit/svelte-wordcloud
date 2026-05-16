@@ -75,6 +75,7 @@
 
 	// ── Layout (async generator) ──────────────────────────────────────────────
 	let wordLayout = $state<Layout3DResult>({ words: [], numLayers: 1 });
+	let isLoading = $state(false);
 
 	$effect(() => {
 		const params: Layout3DParams = {
@@ -93,6 +94,7 @@
 		};
 
 		wordLayout = { words: [], numLayers: 1 };
+		isLoading = true;
 		let cancelled = false;
 
 		(async () => {
@@ -100,6 +102,7 @@
 				if (cancelled) return;
 				wordLayout = partial;
 			}
+			if (!cancelled) isLoading = false;
 		})();
 
 		return () => {
@@ -320,7 +323,8 @@
 		function onWheel(e: WheelEvent) {
 			if (!e.ctrlKey) return;
 			e.preventDefault();
-			const delta = e.deltaY * 0.015 * wheelScrollSpeed * layerSpacing;
+			if (isLoading) return;
+			const delta = e.deltaY * 0.007 * wheelScrollSpeed * layerSpacing;
 			targetZ = Math.max(minZ, Math.min(maxZ, targetZ + delta));
 			camSpring.set(targetZ);
 			syncScrollCtx();
@@ -347,6 +351,7 @@
 		}
 
 		function onTouchStart(e: TouchEvent) {
+			if (isLoading) return;
 			if (e.touches.length === 2) {
 				lastDist = pinchDist(e);
 				prevTouchPos = null;
@@ -413,7 +418,7 @@
 		let prevPos: { x: number; y: number } | null = null;
 
 		function onMouseDown(e: MouseEvent) {
-			if (e.button !== 0) return;
+			if (e.button !== 0 || isLoading) return;
 			isPanDragging = true;
 			prevPos = { x: e.clientX, y: e.clientY };
 			wrap!.style.cursor = 'grabbing';
@@ -511,6 +516,11 @@
 					{setCursor}
 				/>
 			</Canvas>
+			{#if isLoading}
+				<div data-wc-loading-overlay aria-hidden="true">
+					<div data-wc-spinner></div>
+				</div>
+			{/if}
 		</div>
 		<PanKeyControl
 			hint={panHint}
@@ -618,6 +628,31 @@
 		white-space: nowrap;
 		user-select: none;
 		font-variant-numeric: tabular-nums;
+	}
+
+	:where([data-wc-loading-overlay]) {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		pointer-events: none;
+		z-index: 10;
+	}
+
+	:where([data-wc-spinner]) {
+		width: 28px;
+		height: 28px;
+		border-radius: 50%;
+		border: 3px solid color-mix(in srgb, var(--wc-color, white) 20%, transparent);
+		border-top-color: color-mix(in srgb, var(--wc-color, white) 75%, transparent);
+		animation: wc-spin 0.75s linear infinite;
+	}
+
+	@keyframes wc-spin {
+		to {
+			transform: rotate(360deg);
+		}
 	}
 
 	:where([data-wc-canvas]) {

@@ -4,12 +4,17 @@ description: 3D multi-layer word cloud component.
 ---
 
 import WordCloud3DDemo from '../../../components/WordCloud3DDemo.svelte';
+import WordCloudHeavyDemo from '../../../components/WordCloudHeavyDemo.svelte';
 
 `WordCloud3D` renders words across multiple depth layers using WebGL (Three.js via Threlte). The viewer can navigate layers with `Ctrl + Wheel`, pinch-to-zoom, or the built-in depth scrollbar (rendered automatically; hidden when there is only one layer).
 
 Must be a descendant of `WordCloud`.
 
 <WordCloud3DDemo client:only="svelte" />
+
+## Heavy demo
+
+<WordCloudHeavyDemo client:only="svelte" />
 
 ## Props
 

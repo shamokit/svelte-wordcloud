@@ -4,12 +4,17 @@ description: 3D マルチレイヤーワードクラウドコンポーネント�
 ---
 
 import WordCloud3DDemo from '../../../../components/WordCloud3DDemo.svelte';
+import WordCloudHeavyDemo from '../../../../components/WordCloudHeavyDemo.svelte';
 
 `WordCloud3D` は WebGL（Three.js / Threlte 経由）を使って複数の深度レイヤーにワードをレンダリングします。`Ctrl + Wheel`、ピンチズーム、またはビルトインの深度スクロールバーでレイヤー間を移動できます（レイヤーが 1 つの場合はスクロールバーは自動的に非表示になります）。
 
 `WordCloud` の子孫要素である必要があります。
 
 <WordCloud3DDemo client:only="svelte" />
+
+## ヘビーデモ
+
+<WordCloudHeavyDemo client:only="svelte" />
 
 ## Props
 

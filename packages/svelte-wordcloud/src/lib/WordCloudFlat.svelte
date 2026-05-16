@@ -20,7 +20,7 @@
 	}: WordCloudFlatProps = $props();
 
 	const fontSizeContrast = $derived(layout.fontSizeContrast ?? 2.0);
-	const topWordArea     = $derived(layout.topWordArea     ?? 0.22);
+	const topWordArea     = $derived(layout.topWordArea     ?? 0.5);
 	const randomness      = $derived(layout.randomness      ?? 0.5);
 
 	const zoomValueText = $derived(a11y.zoomValueText ?? ((z: number) => `${z.toFixed(1)}x`));
@@ -35,7 +35,7 @@
 	const TAN30 = Math.tan(Math.PI / 6); // tan(30°) for FOV=60
 	// Gap between words in CSS pixels. Converted to world units at runtime.
 	const GAP_PX = 16;
-	const MIN_ZOOM = 1;
+	const MIN_ZOOM = 0.2;
 	// Matches default WordCloud3D (layerSpacing=12 × 0.75)
 	const VIEWING_DIST = 9;
 
@@ -76,6 +76,7 @@
 
 	// ── Layout (async generator) ──────────────────────────────────────────────
 	let wordLayout = $state<ProcessedWord[]>([]);
+	let isLoading = $state(false);
 
 	$effect(() => {
 		const params: LayoutFlatParams = {
@@ -93,6 +94,7 @@
 		};
 
 		wordLayout = [];
+		isLoading = true;
 		let cancelled = false;
 
 		(async () => {
@@ -100,6 +102,7 @@
 				if (cancelled) return;
 				wordLayout = partial;
 			}
+			if (!cancelled) isLoading = false;
 		})();
 
 		return () => {
@@ -257,7 +260,8 @@
 	function handleWheel(e: WheelEvent) {
 		if (!e.ctrlKey) return;
 		e.preventDefault();
-		const factor = e.deltaY > 0 ? 1 / 1.12 : 1.12;
+		if (isLoading) return;
+		const factor = e.deltaY > 0 ? 1 / 1.06 : 1.06;
 		applyZoom(zoom * factor);
 	}
 
@@ -269,7 +273,7 @@
 		let prevPos: { x: number; y: number } | null = null;
 
 		function onMouseDown(e: MouseEvent) {
-			if (e.button !== 0) return;
+			if (e.button !== 0 || isLoading) return;
 			isDragging = true;
 			prevPos = { x: e.clientX, y: e.clientY };
 			wrap!.style.cursor = 'grabbing';
@@ -330,6 +334,7 @@
 		}
 
 		function onTouchStart(e: TouchEvent) {
+			if (isLoading) return;
 			if (e.touches.length === 2) {
 				lastPinchDist = pinchDist(e);
 				prevTouchPos = null;
@@ -516,6 +521,11 @@
 					{setCursor}
 				/>
 			</Canvas>
+			{#if isLoading}
+				<div data-wc-loading-overlay aria-hidden="true">
+					<div data-wc-spinner></div>
+				</div>
+			{/if}
 		</div>
 		<PanKeyControl
 			hint={panHint}
@@ -616,6 +626,31 @@
 		white-space: nowrap;
 		user-select: none;
 		font-variant-numeric: tabular-nums;
+	}
+
+	:where([data-wc-loading-overlay]) {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		pointer-events: none;
+		z-index: 10;
+	}
+
+	:where([data-wc-spinner]) {
+		width: 28px;
+		height: 28px;
+		border-radius: 50%;
+		border: 3px solid color-mix(in srgb, var(--wc-color, white) 20%, transparent);
+		border-top-color: color-mix(in srgb, var(--wc-color, white) 75%, transparent);
+		animation: wc-spin 0.75s linear infinite;
+	}
+
+	@keyframes wc-spin {
+		to {
+			transform: rotate(360deg);
+		}
 	}
 
 	:where([data-wc-flat]) {
