@@ -5,7 +5,7 @@ export const CHAR_W_FALLBACK = 0.6;
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 const MAX_SPIRAL_STEPS = 6000;
 
-export function makeYielder(budgetMs = 8): () => Promise<void> {
+export function makeYielder(budgetMs = 16): () => Promise<void> {
 	const perf = typeof performance !== 'undefined' ? performance : { now: () => Date.now() };
 	let last = perf.now();
 	return async () => {
@@ -40,15 +40,27 @@ export function makeBboxFn(
  * Spatial hash grid for O(1) amortised AABB overlap queries.
  * Cell size should be roughly 2× the average bbox half-extent so that
  * any two overlapping boxes share at least one grid cell.
+ *
+ * Keys are packed integers instead of template-literal strings to eliminate
+ * per-operation heap allocations. Assumes cell indices fit in ±30000 (grid
+ * cells are word-sized, so this covers canvases up to ~2.4 million px wide
+ * at the minimum font size — well beyond any real use).
  */
 export class SpatialGrid {
-	private cells = new Map<string, number[]>();
+	private cells = new Map<number, number[]>();
 	private readonly cellW: number;
 	private readonly cellH: number;
 
 	constructor(cellW: number, cellH: number) {
 		this.cellW = Math.max(1e-6, cellW);
 		this.cellH = Math.max(1e-6, cellH);
+	}
+
+	/** Pack two cell indices into a single 32-bit integer key. */
+	private key(x: number, y: number): number {
+		// Offset by 0x4000 (16384) so negatives map to positives,
+		// then pack into low/high 16 bits. Handles indices ±16383.
+		return ((x + 0x4000) & 0xffff) | (((y + 0x4000) & 0xffff) << 16);
 	}
 
 	private range(bbox: BBox): [number, number, number, number] {
@@ -64,7 +76,7 @@ export class SpatialGrid {
 		const [x0, x1, y0, y1] = this.range(bbox);
 		for (let x = x0; x <= x1; x++) {
 			for (let y = y0; y <= y1; y++) {
-				const k = `${x},${y}`;
+				const k = this.key(x, y);
 				const cell = this.cells.get(k);
 				if (cell) cell.push(idx);
 				else this.cells.set(k, [idx]);
@@ -76,7 +88,7 @@ export class SpatialGrid {
 		const [x0, x1, y0, y1] = this.range(bbox);
 		for (let x = x0; x <= x1; x++) {
 			for (let y = y0; y <= y1; y++) {
-				const list = this.cells.get(`${x},${y}`);
+				const list = this.cells.get(this.key(x, y));
 				if (!list) continue;
 				const i = list.indexOf(idx);
 				if (i >= 0) list.splice(i, 1);
@@ -89,7 +101,7 @@ export class SpatialGrid {
 		const seen = new Set<number>();
 		for (let x = x0; x <= x1; x++) {
 			for (let y = y0; y <= y1; y++) {
-				const list = this.cells.get(`${x},${y}`);
+				const list = this.cells.get(this.key(x, y));
 				if (list) for (const idx of list) seen.add(idx);
 			}
 		}
@@ -117,9 +129,13 @@ type LayerState = { occupied: BBox[]; grid: SpatialGrid };
 function tryList(
 	list: Array<{ x: number; y: number; d2: number }>,
 	isValid: (x: number, y: number) => boolean,
+	maxCandidates = 128,
 ): { x: number; y: number } | null {
-	list.sort((a, b) => a.d2 - b.d2);
-	for (const { x, y } of list) {
+	// Partial-sort: only sort the best `maxCandidates` entries when the list is large.
+	// Most placements succeed within the first few candidates, so checking 128
+	// sorted entries is effectively the same as checking all of them.
+	const items = list.length > maxCandidates ? list.sort((a, b) => a.d2 - b.d2).slice(0, maxCandidates) : list.sort((a, b) => a.d2 - b.d2);
+	for (const { x, y } of items) {
 		if (isValid(x, y)) return { x, y };
 	}
 	return null;
@@ -492,7 +508,8 @@ export async function* computeLayout3D(
 	while (unplaced.length > 0) {
 		// Scale this layer's words down to the cap so placement uses final sizes.
 		if (layerCap < Infinity) {
-			const curMaxF = Math.max(...unplaced.map((u) => u.fontSize));
+			let curMaxF = 0;
+			for (const u of unplaced) if (u.fontSize > curMaxF) curMaxF = u.fontSize;
 			if (curMaxF > layerCap) {
 				const s = layerCap / curMaxF;
 				unplaced = unplaced.map((u) => ({
@@ -570,7 +587,7 @@ export async function* computeLayout3D(
 	const byLayerCompact: ProcessedWord[][] = Array.from({ length: numLayers }, () => []);
 	for (const w of bestWords) byLayerCompact[w.layerIndex].push(w);
 	for (const layer of byLayerCompact) {
-		await compactLayer(layer, 6, rx, ry, bboxFn, maybeYield);
+		await compactLayer(layer, 4, rx, ry, bboxFn, maybeYield);
 		yield { words: bestWords, numLayers };
 	}
 
