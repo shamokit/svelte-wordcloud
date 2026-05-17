@@ -564,6 +564,7 @@
 		<div
 			data-wc-canvas
 			data-wc-flat
+			aria-busy={isLoading}
 			onwheel={handleWheel}
 			bind:this={canvasWrapEl}
 			bind:clientWidth={containerW}

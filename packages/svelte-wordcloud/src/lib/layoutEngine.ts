@@ -168,7 +168,11 @@ async function placeSpiral(
 	const cornerDist = Math.sqrt(xMax * xMax + yMax * yMax);
 	const spiralStep = Math.max(
 		Math.min(hw, hh) * 0.15,
-		cornerDist / Math.sqrt(MAX_SPIRAL_STEPS),
+		// Use the actual step budget (not MAX_SPIRAL_STEPS) so the spiral always
+		// reaches the far corners regardless of how many steps are allocated.
+		// With SPIRAL_STEPS_3D=800 and MAX_SPIRAL_STEPS in the denominator the
+		// spiral only covers ~37% of the corner distance, leaving corners empty.
+		cornerDist / Math.sqrt(maxSteps),
 	);
 
 	const isValid = (x: number, y: number) => {

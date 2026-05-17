@@ -22,7 +22,7 @@
 	const layerSpacing    = $derived(layout.layerSpacing    ?? 12);
 	const fontSizeContrast = $derived(layout.fontSizeContrast ?? 2.0);
 	const topWordArea     = $derived(layout.topWordArea     ?? 0.22);
-	const randomness      = $derived(layout.randomness      ?? 0.5);
+	const randomness      = $derived(layout.randomness      ?? 0.32);
 
 	const depthValueText = $derived(a11y.depthValueText ?? ((c: number, t: number) => `Layer ${c} / ${t}`));
 	const depthLabel     = $derived(a11y.depthLabel     ?? 'Depth');
@@ -534,6 +534,7 @@
 	>
 		<div
 			data-wc-canvas
+			aria-busy={isLoading}
 			bind:this={canvasWrapEl}
 			bind:clientWidth={containerW}
 			bind:clientHeight={containerH}
