@@ -435,6 +435,7 @@
 	let zoomDragStartProgress = 0;
 
 	function handleZoomThumbKeydown(e: KeyboardEvent) {
+		if (isLoading) return;
 		const isHorizontal = ctx.scrollbarOrientation === 'horizontal';
 		if (e.key === (isHorizontal ? 'ArrowLeft' : 'ArrowDown')) {
 			e.preventDefault();
@@ -446,6 +447,7 @@
 	}
 
 	function handleZoomThumbPointerDown(e: PointerEvent) {
+		if (isLoading) return;
 		isZoomDragging = true;
 		zoomDragStartPos =
 			ctx.scrollbarOrientation === 'horizontal' ? e.clientX : e.clientY;
@@ -475,6 +477,7 @@
 	}
 
 	function handleZoomTrackClick(e: MouseEvent) {
+		if (isLoading) return;
 		if ((e.target as Element).closest('[data-wc-zoom-thumb]')) return;
 		if (!zoomTrackEl) return;
 		const isHorizontal = ctx.scrollbarOrientation === 'horizontal';

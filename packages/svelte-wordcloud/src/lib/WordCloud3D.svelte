@@ -272,6 +272,7 @@
 	let depthDragStartProgress = 0;
 
 	function handleDepthThumbKeydown(e: KeyboardEvent) {
+		if (isLoading) return;
 		const isHorizontal = ctx.scrollbarOrientation === 'horizontal';
 		if (e.key === (isHorizontal ? 'ArrowLeft' : 'ArrowDown')) {
 			e.preventDefault();
@@ -283,6 +284,7 @@
 	}
 
 	function handleDepthThumbPointerDown(e: PointerEvent) {
+		if (isLoading) return;
 		isDepthDragging = true;
 		depthDragStartPos =
 			ctx.scrollbarOrientation === 'horizontal' ? e.clientX : e.clientY;
@@ -312,6 +314,7 @@
 	}
 
 	function handleDepthTrackClick(e: MouseEvent) {
+		if (isLoading) return;
 		// Exclude clicks on the thumb itself (conflicts with drag)
 		if ((e.target as Element).closest('[data-wc-depth-thumb]')) return;
 		if (!depthTrackEl) return;
