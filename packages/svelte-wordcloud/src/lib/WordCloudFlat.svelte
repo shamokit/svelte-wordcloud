@@ -33,8 +33,11 @@
 
 	// ── Constants ─────────────────────────────────────────────────────────────
 	const TAN30 = Math.tan(Math.PI / 6); // tan(30°) for FOV=60
-	// Gap between words in CSS pixels. Converted to world units at runtime.
+	// Minimum gap between words in CSS pixels. Converted to world units at runtime.
 	const GAP_PX = 16;
+	// Additional gap as a fraction of each word's font size (so large words
+	// get proportionally more breathing room than small words).
+	const PADDING_FRAC = 0.15;
 	const MIN_ZOOM_FLOOR = 0.05;
 	// Matches default WordCloud3D (layerSpacing=12 × 0.75)
 	const VIEWING_DIST = 9;
@@ -87,6 +90,7 @@
 			rx,
 			ry,
 			padding,
+			paddingFrac: PADDING_FRAC,
 			fontSizeContrast,
 			topWordArea,
 			randomness,

@@ -25,13 +25,18 @@ export function makeBboxFn(
 	wordHalfH: Record<string, number>,
 	charH: number,
 	padding: number,
+	/** Extra gap as a fraction of the word's font size, added on top of the
+	 *  fixed pixel-based `padding`. Ensures that large words get proportionally
+	 *  larger gaps instead of being crammed together. Default 0 (off). */
+	paddingFrac = 0,
 ): BBoxFn {
 	return (word, fontSize) => {
 		const w = wordWidths[word] ?? word.length * CHAR_W_FALLBACK;
 		const hh = wordHalfH[word] ?? charH * 0.6;
+		const pad = padding + fontSize * paddingFrac;
 		return {
-			hw: (w * fontSize) / 2 + padding,
-			hh: hh * fontSize + padding,
+			hw: (w * fontSize) / 2 + pad,
+			hh: hh * fontSize + pad,
 		};
 	};
 }
@@ -604,6 +609,8 @@ export type LayoutFlatParams = {
 	rx: number;
 	ry: number;
 	padding: number;
+	/** Extra gap proportional to each word's font size (see `makeBboxFn`). */
+	paddingFrac: number;
 	fontSizeContrast: number;
 	topWordArea: number;
 	randomness: number;
@@ -621,6 +628,7 @@ export async function* computeLayoutFlat(
 		rx,
 		ry,
 		padding,
+		paddingFrac,
 		fontSizeContrast,
 		topWordArea,
 		randomness,
@@ -628,7 +636,7 @@ export async function* computeLayoutFlat(
 	} = params;
 
 	const maybeYield = makeYielder(8);
-	const bboxFn = makeBboxFn(wordWidths, wordHalfH, charH, padding);
+	const bboxFn = makeBboxFn(wordWidths, wordHalfH, charH, padding, paddingFrac);
 
 	const data = rawData.filter(
 		(d) =>
