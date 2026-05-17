@@ -9,7 +9,7 @@
 	import type { WordCloudFlatProps, ProcessedWord, WordItem } from './types.js';
 	import { getWCContext } from './WordCloud.svelte';
 	import { createFontMetrics } from './fontMetrics.svelte.js';
-	import { computeLayoutFlat, type LayoutFlatParams } from './layoutEngine.js';
+	import { computeLayoutFlat, type LayoutFlatParams, CHAR_W_FALLBACK } from './layoutEngine.js';
 
 	const {
 		fontUrl,
@@ -33,9 +33,14 @@
 
 	// ── Constants ─────────────────────────────────────────────────────────────
 	const TAN30 = Math.tan(Math.PI / 6); // tan(30°) for FOV=60
-	// Gap between words in CSS pixels. Converted to world units at runtime.
+	// Minimum gap between words in CSS pixels. Converted to world units at runtime.
 	const GAP_PX = 16;
-	const MIN_ZOOM = 0.2;
+	// Extra gap as a fraction of each word's font size.
+	// Combined with GAP_PX via max(): small/medium words keep the familiar 16px
+	// fixed gap unchanged; only words whose proportional gap (fontSize × 0.10)
+	// exceeds 16px get extra breathing room. Crossover ≈ 80px font height.
+	const PADDING_FRAC = 0.10;
+	const MIN_ZOOM_FLOOR = 0.05;
 	// Matches default WordCloud3D (layerSpacing=12 × 0.75)
 	const VIEWING_DIST = 9;
 
@@ -87,6 +92,7 @@
 			rx,
 			ry,
 			padding,
+			paddingFrac: PADDING_FRAC,
 			fontSizeContrast,
 			topWordArea,
 			randomness,
@@ -110,23 +116,66 @@
 		};
 	});
 
+	// Dynamic minZoom: zoom level where the outermost word is exactly at the viewport edge.
+	// Recomputed whenever the layout changes; defaults to 1.0 until layout resolves.
+	const dynMinZoom = $derived((() => {
+		if (wordLayout.length === 0) return 1.0;
+		let result = 1.0;
+		for (const w of wordLayout) {
+			const ww = wordWidths[w.word] ?? w.word.length * CHAR_W_FALLBACK;
+			const wh = wordHalfH[w.word] ?? charH * 0.6;
+			const hw = (ww * w.fontSize) / 2;
+			const hh = wh * w.fontSize;
+			const xEdge = Math.abs(w.x) + hw;
+			const yEdge = Math.abs(w.y) + hh;
+			if (xEdge > 0) result = Math.min(result, rx / xEdge);
+			if (yEdge > 0) result = Math.min(result, ry / yEdge);
+		}
+		return Math.max(MIN_ZOOM_FLOOR, result);
+	})());
+
+	/**
+	 * Actual bounding half-extents of all placed words.
+	 * Used to set the pan limit: the camera must be able to reach the farthest word.
+	 */
+	const wordBounds = $derived((() => {
+		let maxX = 0, maxY = 0;
+		for (const w of wordLayout) {
+			const ww = wordWidths[w.word] ?? w.word.length * CHAR_W_FALLBACK;
+			const wh = wordHalfH[w.word] ?? charH * 0.6;
+			maxX = Math.max(maxX, Math.abs(w.x) + (ww * w.fontSize) / 2);
+			maxY = Math.max(maxY, Math.abs(w.y) + wh * w.fontSize);
+		}
+		return { maxX, maxY };
+	})());
+
 	// Flat always has exactly 1 layer — assign directly at init (no $effect needed)
 	ctx.numLayers = 1;
 	ctx.currentLayer = 1;
 	ctx.scrollProgress = 0;
-	// Zoom range does not change during the component's lifetime.
-	// untrack signals that only the initial value is needed, no reactivity.
-	ctx.minZoom = MIN_ZOOM;
 	ctx.maxZoom = untrack(() => maxZoom);
-	// zoomTo/zoomStep: closures read the latest values at call time, so direct assignment is fine
+	ctx.zoom = 1.0;
+	ctx.minZoom = 1.0; // updated reactively below once layout resolves
+	ctx.zoomProgress = 0; // updated reactively below
+	// zoomTo/zoomStep: closures read dynMinZoom at call time via applyZoom
 	ctx.zoomTo = (progress: number) => {
-		applyZoom(MIN_ZOOM + progress * (maxZoom - MIN_ZOOM));
+		applyZoom(dynMinZoom + progress * (maxZoom - dynMinZoom));
 	};
 	ctx.zoomStep = (dir: 1 | -1) => {
 		// +1 = zoom in, −1 = zoom out; step = 10 % of total range
-		const step = (maxZoom - MIN_ZOOM) * 0.1;
+		const step = (maxZoom - dynMinZoom) * 0.1;
 		applyZoom(zoom + dir * step);
 	};
+
+	// Keep ctx.minZoom and ctx.zoomProgress in sync whenever dynMinZoom changes
+	$effect(() => {
+		ctx.minZoom = dynMinZoom;
+		if (zoom < dynMinZoom) {
+			applyZoom(dynMinZoom);
+		} else {
+			ctx.zoomProgress = (zoom - dynMinZoom) / (maxZoom - dynMinZoom);
+		}
+	});
 
 	// ── Zoom & Pan ────────────────────────────────────────────────────────────
 	const prefersReducedMotion =
@@ -151,23 +200,29 @@
 	const cameraY = $derived(panSpring.current.y);
 
 	/**
-	 * Pan is constrained to keep the word cloud content within the viewport.
-	 * At zoom level z the visible half-width is rx/z, so the camera can travel
-	 * at most rx*(1 − 1/z) from center before the content exits the viewport.
+	 * Pan is constrained so that the camera can reach every placed word but
+	 * cannot scroll past the farthest content.
+	 *
+	 * At zoom level z the visible half-extent is rx/z.  The camera centre
+	 * (panX) can travel at most (wordBounds.maxX − rx/z) before the far edge
+	 * of the content leaves the viewport.  When everything fits inside the
+	 * visible area (maxX ≤ rx/z) the limit is 0 — camera stays centred.
 	 */
 	function clampPan(px: number, py: number) {
+		const limitX = Math.max(0, wordBounds.maxX - rx / zoom);
+		const limitY = Math.max(0, wordBounds.maxY - ry / zoom);
 		return {
-			px: Math.max(-rx, Math.min(rx, px)),
-			py: Math.max(-ry, Math.min(ry, py)),
+			px: Math.max(-limitX, Math.min(limitX, px)),
+			py: Math.max(-limitY, Math.min(limitY, py)),
 		};
 	}
 
 	function applyZoom(newZoom: number) {
-		zoom = Math.max(MIN_ZOOM, Math.min(maxZoom, newZoom));
+		zoom = Math.max(dynMinZoom, Math.min(maxZoom, newZoom));
 		zoomSpring.set(zoom);
 		// Zoom is event-driven; update context directly
 		ctx.zoom = zoom;
-		ctx.zoomProgress = (zoom - MIN_ZOOM) / (maxZoom - MIN_ZOOM);
+		ctx.zoomProgress = (zoom - dynMinZoom) / (maxZoom - dynMinZoom);
 		// Update cursor directly (no $effect needed)
 		if (canvasWrapEl && !isDragging) {
 			canvasWrapEl.style.cursor = 'grab';
@@ -228,6 +283,7 @@
 	}
 
 	function handlePanKeyup(e: KeyboardEvent) {
+		if (isLoading) return;
 		const stepX = (rx / zoom) * PAN_KEY_STEP;
 		const stepY = (ry / zoom) * PAN_KEY_STEP;
 		switch (e.key) {
@@ -407,6 +463,7 @@
 	let zoomDragStartProgress = 0;
 
 	function handleZoomThumbKeydown(e: KeyboardEvent) {
+		if (isLoading) return;
 		const isHorizontal = ctx.scrollbarOrientation === 'horizontal';
 		if (e.key === (isHorizontal ? 'ArrowLeft' : 'ArrowDown')) {
 			e.preventDefault();
@@ -418,6 +475,7 @@
 	}
 
 	function handleZoomThumbPointerDown(e: PointerEvent) {
+		if (isLoading) return;
 		isZoomDragging = true;
 		zoomDragStartPos =
 			ctx.scrollbarOrientation === 'horizontal' ? e.clientX : e.clientY;
@@ -447,6 +505,7 @@
 	}
 
 	function handleZoomTrackClick(e: MouseEvent) {
+		if (isLoading) return;
 		if ((e.target as Element).closest('[data-wc-zoom-thumb]')) return;
 		if (!zoomTrackEl) return;
 		const isHorizontal = ctx.scrollbarOrientation === 'horizontal';
@@ -505,6 +564,7 @@
 		<div
 			data-wc-canvas
 			data-wc-flat
+			aria-busy={isLoading}
 			onwheel={handleWheel}
 			bind:this={canvasWrapEl}
 			bind:clientWidth={containerW}
@@ -530,13 +590,14 @@
 		<PanKeyControl
 			hint={panHint}
 			label={panLabel}
+			disabled={isLoading}
 			onkeydown={handlePanKeydown}
 			onkeyup={handlePanKeyup}
 		/>
 		{#if !isPanCentered}
-			<PanResetButton label={resetPanLabel} onreset={resetPan} />
+			<PanResetButton label={resetPanLabel} disabled={isLoading} onreset={resetPan} />
 		{/if}
-		<div data-wc-zoom-col data-wc-orientation={ctx.scrollbarOrientation}>
+		<div data-wc-zoom-col data-wc-orientation={ctx.scrollbarOrientation} data-wc-loading={isLoading || undefined}>
 			<span data-wc-zoom-label id={ctx.zoomLabelId}>{zoomLabel}</span>
 			<div data-wc-zoom-indicator aria-hidden="true">
 				×{ctx.zoom.toFixed(1)}
@@ -561,6 +622,7 @@
 					aria-valuemax={ctx.maxZoom}
 					aria-valuenow={ctx.zoom}
 					aria-valuetext={zoomValueText(ctx.zoom)}
+					disabled={isLoading}
 					onkeydown={handleZoomThumbKeydown}
 					onpointerdown={handleZoomThumbPointerDown}
 					onpointermove={handleZoomThumbPointerMove}
@@ -787,5 +849,12 @@
 		transform: translateX(
 			calc(var(--wc-progress, 0) * (100cqi - var(--wc-dot-size)))
 		);
+	}
+
+	/* ── loading state ───────────────────────────────────────────────────────── */
+	:where([data-wc-zoom-col][data-wc-loading]) {
+		pointer-events: none;
+		cursor: not-allowed;
+		opacity: 0.4;
 	}
 </style>

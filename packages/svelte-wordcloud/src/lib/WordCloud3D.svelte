@@ -22,7 +22,7 @@
 	const layerSpacing    = $derived(layout.layerSpacing    ?? 12);
 	const fontSizeContrast = $derived(layout.fontSizeContrast ?? 2.0);
 	const topWordArea     = $derived(layout.topWordArea     ?? 0.22);
-	const randomness      = $derived(layout.randomness      ?? 0.5);
+	const randomness      = $derived(layout.randomness      ?? 0.32);
 
 	const depthValueText = $derived(a11y.depthValueText ?? ((c: number, t: number) => `Layer ${c} / ${t}`));
 	const depthLabel     = $derived(a11y.depthLabel     ?? 'Depth');
@@ -36,6 +36,8 @@
 	const TAN30 = Math.tan(Math.PI / 6); // tan(30°) = tan(FOV/2) for FOV=60
 	// Gap between words in CSS pixels. Converted to world units at runtime.
 	const GAP_PX = 16;
+	// Extra scroll range beyond the first/last layer (in layer units).
+	const EXTEND_LAYERS = 0.5;
 
 	// ── Font metrics ──────────────────────────────────────────────────────────
 	const metrics = createFontMetrics(
@@ -77,6 +79,10 @@
 	let wordLayout = $state<Layout3DResult>({ words: [], numLayers: 1 });
 	let isLoading = $state(false);
 
+	// Track the data reference to know when to clear the display vs. quiet-recompute.
+	// Plain variable (not $state) so reading/writing it doesn't re-trigger the effect.
+	let lastData: typeof ctx.data | null = null;
+
 	$effect(() => {
 		const params: Layout3DParams = {
 			data: ctx.data,
@@ -93,16 +99,25 @@
 			computedWordColor,
 		};
 
-		wordLayout = { words: [], numLayers: 1 };
-		isLoading = true;
+		// Only clear the display and show the spinner when word data itself changes.
+		// For cosmetic re-runs (container resize, font metrics, color), keep
+		// showing the previous layout silently while the new computation runs.
+		if (ctx.data !== lastData) {
+			lastData = ctx.data;
+			wordLayout = { words: [], numLayers: 1 };
+			isLoading = true;
+		}
 		let cancelled = false;
 
 		(async () => {
-			for await (const partial of computeLayout3D(params)) {
-				if (cancelled) return;
-				wordLayout = partial;
+			try {
+				for await (const partial of computeLayout3D(params)) {
+					if (cancelled) return;
+					wordLayout = partial;
+				}
+			} finally {
+				if (!cancelled) isLoading = false;
 			}
-			if (!cancelled) isLoading = false;
 		})();
 
 		return () => {
@@ -121,33 +136,48 @@
 		damping: prefersReducedMotion ? 1 : 0.78,
 	});
 
+	// Layer 1 camera position (also the initial targetZ)
 	const maxZ = initViewingDist;
+	// Last-layer camera position
 	const minZ = $derived(
 		-(wordLayout.numLayers - 1) * layerSpacing + initViewingDist,
 	);
+	// Extend scroll range past the last layer only; layer 1 is the minimum (all words fit at that depth)
+	const scrollMaxZ = maxZ;
+	const scrollMinZ = $derived(minZ - EXTEND_LAYERS * initLayerSpacing);
+
+	// scrollProgress covers the full extended range [0 = scrollMaxZ, 1 = scrollMinZ]
 	const scrollProgress = $derived(
-		maxZ === minZ ? 0 : (targetZ - maxZ) / (minZ - maxZ),
+		scrollMaxZ === scrollMinZ ? 0 : (targetZ - scrollMaxZ) / (scrollMinZ - scrollMaxZ),
 	);
+
+	// currentLayer is clamped to [1, N] so extended zones show the boundary layer
+	function computeCurrentLayer(numLayers: number) {
+		if (maxZ === minZ) return 1;
+		const p = Math.max(0, Math.min(1, (targetZ - maxZ) / (minZ - maxZ)));
+		return Math.round(p * (numLayers - 1)) + 1;
+	}
 
 	// ── Write scroll state back to context ──────────────────────────────────
 	$effect(() => {
 		ctx.numLayers = wordLayout.numLayers;
-		ctx.currentLayer = Math.round(scrollProgress * (wordLayout.numLayers - 1)) + 1;
+		ctx.currentLayer = computeCurrentLayer(wordLayout.numLayers);
+		ctx.scrollProgress = scrollProgress;
 	});
 
 	function syncScrollCtx() {
 		ctx.scrollProgress = scrollProgress;
-		ctx.currentLayer = Math.round(scrollProgress * (wordLayout.numLayers - 1)) + 1;
+		ctx.currentLayer = computeCurrentLayer(wordLayout.numLayers);
 	}
 
 	ctx.scrollTo = (progress: number) => {
-		targetZ = maxZ + progress * (minZ - maxZ);
+		targetZ = scrollMaxZ + progress * (scrollMinZ - scrollMaxZ);
 		camSpring.set(targetZ);
 		syncScrollCtx();
 	};
 	ctx.scrollStep = (dir: 1 | -1) => {
 		const step = layerSpacing * 0.3;
-		targetZ = Math.max(minZ, Math.min(maxZ, targetZ - dir * step));
+		targetZ = Math.max(scrollMinZ, Math.min(scrollMaxZ, targetZ - dir * step));
 		camSpring.set(targetZ);
 		syncScrollCtx();
 	};
@@ -220,6 +250,7 @@
 	}
 
 	function handlePanKeyup(e: KeyboardEvent) {
+		if (isLoading) return;
 		const stepX = rx * PAN_KEY_STEP;
 		const stepY = ry * PAN_KEY_STEP;
 		switch (e.key) {
@@ -255,6 +286,7 @@
 	let depthDragStartProgress = 0;
 
 	function handleDepthThumbKeydown(e: KeyboardEvent) {
+		if (isLoading) return;
 		const isHorizontal = ctx.scrollbarOrientation === 'horizontal';
 		if (e.key === (isHorizontal ? 'ArrowLeft' : 'ArrowDown')) {
 			e.preventDefault();
@@ -266,6 +298,7 @@
 	}
 
 	function handleDepthThumbPointerDown(e: PointerEvent) {
+		if (isLoading) return;
 		isDepthDragging = true;
 		depthDragStartPos =
 			ctx.scrollbarOrientation === 'horizontal' ? e.clientX : e.clientY;
@@ -295,6 +328,7 @@
 	}
 
 	function handleDepthTrackClick(e: MouseEvent) {
+		if (isLoading) return;
 		// Exclude clicks on the thumb itself (conflicts with drag)
 		if ((e.target as Element).closest('[data-wc-depth-thumb]')) return;
 		if (!depthTrackEl) return;
@@ -325,7 +359,7 @@
 			e.preventDefault();
 			if (isLoading) return;
 			const delta = e.deltaY * 0.007 * wheelScrollSpeed * layerSpacing;
-			targetZ = Math.max(minZ, Math.min(maxZ, targetZ + delta));
+			targetZ = Math.max(scrollMinZ, Math.min(scrollMaxZ, targetZ + delta));
 			camSpring.set(targetZ);
 			syncScrollCtx();
 		}
@@ -380,7 +414,7 @@
 				// Pinch in (d shrinks) → go deeper; pinch out → go shallower
 				const delta = (lastDist - d) * 0.05 * wheelScrollSpeed;
 				lastDist = d;
-				targetZ = Math.max(minZ, Math.min(maxZ, targetZ - delta));
+				targetZ = Math.max(scrollMinZ, Math.min(scrollMaxZ, targetZ - delta));
 				camSpring.set(targetZ);
 				syncScrollCtx();
 			} else if (e.touches.length === 1 && prevTouchPos) {
@@ -500,6 +534,7 @@
 	>
 		<div
 			data-wc-canvas
+			aria-busy={isLoading}
 			bind:this={canvasWrapEl}
 			bind:clientWidth={containerW}
 			bind:clientHeight={containerH}
@@ -525,16 +560,18 @@
 		<PanKeyControl
 			hint={panHint}
 			label={panLabel}
+			disabled={isLoading}
 			onkeydown={handlePanKeydown}
 			onkeyup={handlePanKeyup}
 		/>
 		{#if !isPanCentered}
-			<PanResetButton label={resetPanLabel} onreset={resetPan} />
+			<PanResetButton label={resetPanLabel} disabled={isLoading} onreset={resetPan} />
 		{/if}
 		<div
 			data-wc-depth-col
 			data-wc-orientation={ctx.scrollbarOrientation}
 			data-wc-hidden={ctx.numLayers <= 1 || undefined}
+			data-wc-loading={isLoading || undefined}
 		>
 			<span data-wc-depth-label id={ctx.depthLabelId}>{depthLabel}</span>
 			<div data-wc-layer-indicator aria-hidden="true">
@@ -560,6 +597,7 @@
 					aria-valuemax={ctx.numLayers}
 					aria-valuenow={ctx.currentLayer}
 					aria-valuetext={depthValueText(ctx.currentLayer, ctx.numLayers)}
+					disabled={isLoading}
 					onkeydown={handleDepthThumbKeydown}
 					onpointerdown={handleDepthThumbPointerDown}
 					onpointermove={handleDepthThumbPointerMove}
@@ -593,6 +631,8 @@
 		flex-direction: column;
 		align-items: center;
 		flex-shrink: 0;
+		/* Fixed width so the layer-count text never reflows the canvas. */
+		width: var(--wc-scrollbar-size, 40px);
 		padding-block: var(--wc-scrollbar-padding, 8px);
 		gap: var(--wc-scrollbar-gap, 4px);
 	}
@@ -602,8 +642,20 @@
 		padding-block: calc(var(--wc-scrollbar-padding, 8px) / 2);
 		padding-inline: var(--wc-scrollbar-padding, 8px);
 	}
+	/*
+	 * Reserve the scrollbar gutter even when hidden. Using `display: none` would
+	 * resize the canvas, which feeds back into rx/ry and re-triggers the layout
+	 * effect — an infinite recompute loop.
+	 */
 	:where([data-wc-depth-col][data-wc-hidden]) {
-		display: none;
+		visibility: hidden;
+		pointer-events: none;
+	}
+
+	:where([data-wc-depth-col][data-wc-loading]) {
+		pointer-events: none;
+		cursor: not-allowed;
+		opacity: 0.4;
 	}
 	:where([data-wc-depth-col]) :where([data-wc-depth-track]) {
 		flex: 1;

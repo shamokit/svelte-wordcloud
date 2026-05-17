@@ -131,7 +131,7 @@ export type WordCloud3DLayout = {
 	/**
 	 * How randomly words are scattered around their ideal touch position.
 	 * `0` produces a tight, grid-like layout; `1` scatters words as far as
-	 * possible while still keeping them packed together. Default: 0.5.
+	 * possible while still keeping them packed together. Default: 0.32.
 	 */
 	randomness?: number;
 };
