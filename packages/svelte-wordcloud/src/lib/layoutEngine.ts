@@ -448,7 +448,7 @@ export async function* computeLayout3D(
 	const minF = Math.min(rx, ry) * 0.08;
 	const initialMaxF = Math.min(rawMaxF, maxFByW, maxFByH);
 	const TARGET_COVERAGE = 0.5;
-	const MAX_LAYOUT_ATTEMPTS = 3;
+	const MAX_LAYOUT_ATTEMPTS = 5;
 
 	const computeSizes = (maxF: number) =>
 		sorted.map((item) => {
