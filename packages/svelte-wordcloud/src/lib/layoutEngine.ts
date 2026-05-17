@@ -33,7 +33,10 @@ export function makeBboxFn(
 	return (word, fontSize) => {
 		const w = wordWidths[word] ?? word.length * CHAR_W_FALLBACK;
 		const hh = wordHalfH[word] ?? charH * 0.6;
-		const pad = padding + fontSize * paddingFrac;
+		// Use whichever is larger: the fixed pixel floor or the proportional gap.
+		// Small words keep the familiar fixed gap; large words get proportionally
+		// more breathing room without affecting medium/small word layout.
+		const pad = Math.max(padding, fontSize * paddingFrac);
 		return {
 			hw: (w * fontSize) / 2 + pad,
 			hh: hh * fontSize + pad,

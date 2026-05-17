@@ -33,12 +33,12 @@
 
 	// ── Constants ─────────────────────────────────────────────────────────────
 	const TAN30 = Math.tan(Math.PI / 6); // tan(30°) for FOV=60
-	// Tiny absolute floor gap (≈1 px per side) — prevents degenerate zero-gap
-	// in edge cases but contributes almost nothing visually.
-	const GAP_PX = 2;
-	// Gap as a fraction of each word's font size. Using purely proportional
-	// padding means every word gets ≈20% breathing room (2×0.10) regardless
-	// of whether the font is tiny or enormous — no manual tuning needed.
+	// Minimum gap between words in CSS pixels. Converted to world units at runtime.
+	const GAP_PX = 16;
+	// Extra gap as a fraction of each word's font size.
+	// Combined with GAP_PX via max(): small/medium words keep the familiar 16px
+	// fixed gap unchanged; only words whose proportional gap (fontSize × 0.10)
+	// exceeds 16px get extra breathing room. Crossover ≈ 80px font height.
 	const PADDING_FRAC = 0.10;
 	const MIN_ZOOM_FLOOR = 0.05;
 	// Matches default WordCloud3D (layerSpacing=12 × 0.75)
