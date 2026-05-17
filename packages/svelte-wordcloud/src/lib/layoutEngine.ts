@@ -200,12 +200,21 @@ export async function placeAdjacent(
 
 	if (occupied.length === 0) return isValid(0, 0) ? { x: 0, y: 0 } : null;
 
+	// Generate adjacency candidates only from the most-recently-placed words —
+	// they form the growing frontier where new words attach. Keeps per-word cost
+	// O(1) instead of O(N); interior gaps fall through to the spiral scan, which
+	// covers the whole region from the centre outward. Overlap checks still run
+	// against every placed word via the grid, so correctness is unaffected.
+	const FRONTIER_K = 64;
+	const anchors =
+		occupied.length <= FRONTIER_K ? occupied : occupied.slice(-FRONTIER_K);
+
 	const JITTER = randomness;
 	const jit = (max: number) => (Math.random() - 0.5) * 2 * max;
 	const jitCands: Array<{ x: number; y: number; d2: number }> = [];
 	const exactCands: Array<{ x: number; y: number; d2: number }> = [];
 
-	for (const p of occupied) {
+	for (const p of anchors) {
 		const rx_ = p.cx + p.hw + hw;
 		const lx_ = p.cx - p.hw - hw;
 		const ty_ = p.cy + p.hh + hh;
@@ -239,8 +248,8 @@ export async function placeAdjacent(
 	const hit1 = tryList(jitCands, isValid) ?? tryList(exactCands, isValid);
 	if (hit1) return hit1;
 
-	const N_CROSS = Math.min(20, occupied.length);
-	const nearest = occupied
+	const N_CROSS = Math.min(20, anchors.length);
+	const nearest = anchors
 		.map((p) => ({ p, d2: p.cx * p.cx + p.cy * p.cy }))
 		.sort((a, b) => a.d2 - b.d2)
 		.slice(0, N_CROSS)
@@ -252,7 +261,7 @@ export async function placeAdjacent(
 		const lx1 = p.cx - p.hw - hw;
 		const ty1 = p.cy + p.hh + hh;
 		const by1 = p.cy - p.hh - hh;
-		for (const q of occupied) {
+		for (const q of anchors) {
 			if (q === p) continue;
 			for (const x of [rx1, lx1]) {
 				if (Math.abs(x) <= xMax && Math.abs(q.cy) <= yMax)
@@ -465,12 +474,6 @@ export async function* computeLayout3D(
 		});
 
 	const sizes = computeSizes(initialMaxF);
-	const { cellW, cellH } = gridCellSize(bboxFn, sizes);
-	const newLayer = (): LayerState => ({
-		occupied: [],
-		grid: new SpatialGrid(cellW, cellH),
-	});
-	const layers: LayerState[] = [newLayer()];
 	const result: ProcessedWord[] = [];
 
 	// Fewer spiral steps for 3D: words that miss go to the next layer (still displayed).
@@ -482,13 +485,11 @@ export async function* computeLayout3D(
 	// Each layer's words are pre-scaled to a cap set by the previous layer, so
 	// they are placed at their final size — every layer packs densely, and
 	// deeper layers are progressively smaller (depth cue) without leaving gaps.
+	const layers: LayerState[] = [];
 	let unplaced = sizes;
 	// Upper bound on font size for the current layer (Infinity → layer 0, full size).
 	let layerCap = Infinity;
 	while (unplaced.length > 0) {
-		const li = layers.length - 1;
-		const { occupied, grid } = layers[li];
-
 		// Scale this layer's words down to the cap so placement uses final sizes.
 		if (layerCap < Infinity) {
 			const curMaxF = Math.max(...unplaced.map((u) => u.fontSize));
@@ -500,6 +501,14 @@ export async function* computeLayout3D(
 				}));
 			}
 		}
+
+		// Size the spatial grid for THIS layer's (scaled) words so overlap
+		// queries stay O(1): deeper layers have far smaller words than layer 0.
+		const { cellW, cellH } = gridCellSize(bboxFn, unplaced);
+		const occupied: BBox[] = [];
+		const grid = new SpatialGrid(cellW, cellH);
+		layers.push({ occupied, grid });
+		const li = layers.length - 1;
 
 		const overflow: typeof sizes = [];
 		let anyPlaced = false;
@@ -552,7 +561,6 @@ export async function* computeLayout3D(
 		if (unplaced.length > 0) {
 			// Next layer's largest word must not exceed this layer's smallest.
 			layerCap = Math.max(layerMinF, minF);
-			layers.push(newLayer());
 		}
 	}
 
