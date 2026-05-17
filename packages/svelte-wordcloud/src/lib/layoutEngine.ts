@@ -587,7 +587,7 @@ export async function* computeLayout3D(
 	const byLayerCompact: ProcessedWord[][] = Array.from({ length: numLayers }, () => []);
 	for (const w of bestWords) byLayerCompact[w.layerIndex].push(w);
 	for (const layer of byLayerCompact) {
-		await compactLayer(layer, 4, rx, ry, bboxFn, maybeYield);
+		await compactLayer(layer, 6, rx, ry, bboxFn, maybeYield);
 		yield { words: bestWords, numLayers };
 	}
 
