@@ -3,13 +3,14 @@
 
 	type Props = {
 		label: string;
+		disabled?: boolean;
 		onreset: () => void;
 	};
 
-	const { label, onreset }: Props = $props();
+	const { label, disabled = false, onreset }: Props = $props();
 </script>
 
-<button type="button" data-wc-reset-pan onclick={onreset}>
+<button type="button" data-wc-reset-pan {disabled} onclick={onreset}>
 	<span data-wc-sr-only>{label}</span>
 	<Crosshair size={16} aria-hidden="true" />
 </button>
@@ -72,5 +73,11 @@
 		outline: 2px solid
 			color-mix(in srgb, var(--wc-color, currentColor) 70%, transparent);
 		outline-offset: 2px;
+	}
+
+	:where([data-wc-reset-pan]):disabled {
+		cursor: not-allowed;
+		opacity: 0.3;
+		pointer-events: none;
 	}
 </style>

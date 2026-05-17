@@ -237,6 +237,7 @@
 	}
 
 	function handlePanKeyup(e: KeyboardEvent) {
+		if (isLoading) return;
 		const stepX = rx * PAN_KEY_STEP;
 		const stepY = ry * PAN_KEY_STEP;
 		switch (e.key) {
@@ -545,16 +546,18 @@
 		<PanKeyControl
 			hint={panHint}
 			label={panLabel}
+			disabled={isLoading}
 			onkeydown={handlePanKeydown}
 			onkeyup={handlePanKeyup}
 		/>
 		{#if !isPanCentered}
-			<PanResetButton label={resetPanLabel} onreset={resetPan} />
+			<PanResetButton label={resetPanLabel} disabled={isLoading} onreset={resetPan} />
 		{/if}
 		<div
 			data-wc-depth-col
 			data-wc-orientation={ctx.scrollbarOrientation}
 			data-wc-hidden={ctx.numLayers <= 1 || undefined}
+			data-wc-loading={isLoading || undefined}
 		>
 			<span data-wc-depth-label id={ctx.depthLabelId}>{depthLabel}</span>
 			<div data-wc-layer-indicator aria-hidden="true">
@@ -580,6 +583,7 @@
 					aria-valuemax={ctx.numLayers}
 					aria-valuenow={ctx.currentLayer}
 					aria-valuetext={depthValueText(ctx.currentLayer, ctx.numLayers)}
+					disabled={isLoading}
 					onkeydown={handleDepthThumbKeydown}
 					onpointerdown={handleDepthThumbPointerDown}
 					onpointermove={handleDepthThumbPointerMove}
@@ -624,6 +628,12 @@
 	}
 	:where([data-wc-depth-col][data-wc-hidden]) {
 		display: none;
+	}
+
+	:where([data-wc-depth-col][data-wc-loading]) {
+		pointer-events: none;
+		cursor: not-allowed;
+		opacity: 0.4;
 	}
 	:where([data-wc-depth-col]) :where([data-wc-depth-track]) {
 		flex: 1;

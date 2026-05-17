@@ -256,6 +256,7 @@
 	}
 
 	function handlePanKeyup(e: KeyboardEvent) {
+		if (isLoading) return;
 		const stepX = (rx / zoom) * PAN_KEY_STEP;
 		const stepY = (ry / zoom) * PAN_KEY_STEP;
 		switch (e.key) {
@@ -561,13 +562,14 @@
 		<PanKeyControl
 			hint={panHint}
 			label={panLabel}
+			disabled={isLoading}
 			onkeydown={handlePanKeydown}
 			onkeyup={handlePanKeyup}
 		/>
 		{#if !isPanCentered}
-			<PanResetButton label={resetPanLabel} onreset={resetPan} />
+			<PanResetButton label={resetPanLabel} disabled={isLoading} onreset={resetPan} />
 		{/if}
-		<div data-wc-zoom-col data-wc-orientation={ctx.scrollbarOrientation}>
+		<div data-wc-zoom-col data-wc-orientation={ctx.scrollbarOrientation} data-wc-loading={isLoading || undefined}>
 			<span data-wc-zoom-label id={ctx.zoomLabelId}>{zoomLabel}</span>
 			<div data-wc-zoom-indicator aria-hidden="true">
 				×{ctx.zoom.toFixed(1)}
@@ -592,6 +594,7 @@
 					aria-valuemax={ctx.maxZoom}
 					aria-valuenow={ctx.zoom}
 					aria-valuetext={zoomValueText(ctx.zoom)}
+					disabled={isLoading}
 					onkeydown={handleZoomThumbKeydown}
 					onpointerdown={handleZoomThumbPointerDown}
 					onpointermove={handleZoomThumbPointerMove}
@@ -818,5 +821,12 @@
 		transform: translateX(
 			calc(var(--wc-progress, 0) * (100cqi - var(--wc-dot-size)))
 		);
+	}
+
+	/* ── loading state ───────────────────────────────────────────────────────── */
+	:where([data-wc-zoom-col][data-wc-loading]) {
+		pointer-events: none;
+		cursor: not-allowed;
+		opacity: 0.4;
 	}
 </style>

@@ -4,14 +4,15 @@
 	type Props = {
 		hint: string;
 		label: string;
+		disabled?: boolean;
 		onkeydown: (e: KeyboardEvent) => void;
 		onkeyup: (e: KeyboardEvent) => void;
 	};
 
-	const { hint, label, onkeydown, onkeyup }: Props = $props();
+	const { hint, label, disabled = false, onkeydown, onkeyup }: Props = $props();
 </script>
 
-<button type="button" data-wc-pan-control {onkeydown} {onkeyup}>
+<button type="button" data-wc-pan-control {disabled} {onkeydown} {onkeyup}>
 	<span data-wc-pan-visual aria-hidden="true">
 		<Move size={24} aria-hidden="true" />
 		<span>{hint}</span>
@@ -52,6 +53,11 @@
 		background: transparent;
 		color: var(--wc-color, currentColor);
 		cursor: default;
+	}
+
+	:where([data-wc-pan-control]):disabled {
+		cursor: not-allowed;
+		opacity: 0.35;
 	}
 
 	:where([data-wc-pan-control]):focus-visible {
