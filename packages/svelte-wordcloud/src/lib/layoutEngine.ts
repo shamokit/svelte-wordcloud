@@ -447,49 +447,93 @@ export async function* computeLayout3D(
 	const maxFByH = ry / charH;
 	const minF = Math.min(rx, ry) * 0.08;
 	const initialMaxF = Math.min(rawMaxF, maxFByW, maxFByH);
-	const sizes = sorted.map((item) => {
-		const sqrtVal = Math.sqrt(item.counts);
-		let fontSize: number;
-		if (sqrtMin === sqrtMax) {
-			fontSize = (minF + initialMaxF) / 2;
-		} else {
-			const t = (sqrtVal - sqrtMin) / (sqrtMax - sqrtMin);
-			fontSize = minF + Math.pow(t, fontSizeContrast) * (initialMaxF - minF);
-		}
-		const itemW = wordWidths[item.word] ?? item.word.length * CHAR_W_FALLBACK;
-		fontSize = Math.min(fontSize, (portraitScale * rx) / itemW);
-		return { item, fontSize, color: item.color ?? computedWordColor };
-	});
+	const TARGET_COVERAGE = 0.5;
+	const MAX_LAYOUT_ATTEMPTS = 3;
 
-	const { cellW, cellH } = gridCellSize(bboxFn, sizes);
-	const newLayer = (): LayerState => ({
-		occupied: [],
-		grid: new SpatialGrid(cellW, cellH),
-	});
-	const layers: LayerState[] = [newLayer()];
-	const result: ProcessedWord[] = [];
+	const computeSizes = (maxF: number) =>
+		sorted.map((item) => {
+			const sqrtVal = Math.sqrt(item.counts);
+			let fontSize: number;
+			if (sqrtMin === sqrtMax) {
+				fontSize = (minF + maxF) / 2;
+			} else {
+				const t = (sqrtVal - sqrtMin) / (sqrtMax - sqrtMin);
+				fontSize = minF + Math.pow(t, fontSizeContrast) * (maxF - minF);
+			}
+			const itemW = wordWidths[item.word] ?? item.word.length * CHAR_W_FALLBACK;
+			fontSize = Math.min(fontSize, (portraitScale * rx) / itemW);
+			return { item, fontSize, color: item.color ?? computedWordColor };
+		});
 
-	for (const { item, fontSize, color } of sizes) {
-		const { hw, hh } = bboxFn(item.word, fontSize);
+	let currentMaxF = initialMaxF;
+	let best: Layout3DResult = { words: [], numLayers: 1 };
 
-		let placed = false;
-		for (let li = 0; li < layers.length; li++) {
-			const { occupied, grid } = layers[li];
-			const pos = await placeAdjacent(
-				item.word,
-				fontSize,
-				rx,
-				ry,
-				occupied,
-				grid,
-				bboxFn,
-				randomness,
-				maybeYield,
-			);
-			if (pos) {
+	for (let attempt = 0; attempt < MAX_LAYOUT_ATTEMPTS; attempt++) {
+		if (attempt > 0) yield { words: [], numLayers: 1 };
+
+		const sizes = computeSizes(currentMaxF);
+		const { cellW, cellH } = gridCellSize(bboxFn, sizes);
+		const newLayer = (): LayerState => ({
+			occupied: [],
+			grid: new SpatialGrid(cellW, cellH),
+		});
+		const layers: LayerState[] = [newLayer()];
+		const result: ProcessedWord[] = [];
+
+		for (const { item, fontSize, color } of sizes) {
+			const { hw, hh } = bboxFn(item.word, fontSize);
+
+			let placed = false;
+			for (let li = 0; li < layers.length; li++) {
+				const { occupied, grid } = layers[li];
+				const pos = await placeAdjacent(
+					item.word,
+					fontSize,
+					rx,
+					ry,
+					occupied,
+					grid,
+					bboxFn,
+					randomness,
+					maybeYield,
+				);
+				if (pos) {
+					const bbox = { cx: pos.x, cy: pos.y, hw, hh };
+					grid.insert(occupied.length, bbox);
+					occupied.push(bbox);
+					result.push({
+						...item,
+						fontSize,
+						layerIndex: li,
+						x: pos.x,
+						y: pos.y,
+						z: -li * layerSpacing,
+						color,
+					});
+					placed = true;
+					break;
+				}
+			}
+
+			if (!placed) {
+				const li = layers.length;
+				const layer = newLayer();
+				layers.push(layer);
+				const pos =
+					(await placeAdjacent(
+						item.word,
+						fontSize,
+						rx,
+						ry,
+						[],
+						null,
+						bboxFn,
+						randomness,
+						maybeYield,
+					)) ?? { x: 0, y: 0 };
 				const bbox = { cx: pos.x, cy: pos.y, hw, hh };
-				grid.insert(occupied.length, bbox);
-				occupied.push(bbox);
+				layer.grid.insert(0, bbox);
+				layer.occupied.push(bbox);
 				result.push({
 					...item,
 					fontSize,
@@ -499,50 +543,28 @@ export async function* computeLayout3D(
 					z: -li * layerSpacing,
 					color,
 				});
-				placed = true;
-				break;
 			}
+
+			yield { words: result, numLayers: layers.length };
 		}
 
-		if (!placed) {
-			const li = layers.length;
-			const layer = newLayer();
-			layers.push(layer);
-			const pos =
-				(await placeAdjacent(
-					item.word,
-					fontSize,
-					rx,
-					ry,
-					[],
-					null,
-					bboxFn,
-					randomness,
-					maybeYield,
-				)) ?? { x: 0, y: 0 };
-			const bbox = { cx: pos.x, cy: pos.y, hw, hh };
-			layer.grid.insert(0, bbox);
-			layer.occupied.push(bbox);
-			result.push({
-				...item,
-				fontSize,
-				layerIndex: li,
-				x: pos.x,
-				y: pos.y,
-				z: -li * layerSpacing,
-				color,
-			});
-		}
+		best = { words: result, numLayers: layers.length };
 
-		yield { words: result, numLayers: layers.length };
+		if (best.numLayers === 1) break;
+		const totalBBoxArea = best.words.reduce((s, w) => {
+			const { hw, hh } = bboxFn(w.word, w.fontSize);
+			return s + 4 * hw * hh;
+		}, 0);
+		if (totalBBoxArea / (viewArea * best.numLayers) >= TARGET_COVERAGE) break;
+		currentMaxF *= 0.82;
 	}
 
-	const numLayers = layers.length;
+	const { words: bestWords, numLayers } = best;
 
 	// ── Layer font-size scaling ───────────────────────────────────────────────
 	if (numLayers > 1) {
 		const byLayer: ProcessedWord[][] = Array.from({ length: numLayers }, () => []);
-		for (const w of result) byLayer[w.layerIndex].push(w);
+		for (const w of bestWords) byLayer[w.layerIndex].push(w);
 		for (let li = 1; li < numLayers; li++) {
 			const prev = byLayer[li - 1];
 			const cur = byLayer[li];
@@ -555,19 +577,19 @@ export async function* computeLayout3D(
 			}
 		}
 	}
-	for (const w of result) {
+	for (const w of bestWords) {
 		if (w.fontSize < minF) w.fontSize = minF;
 	}
 
 	// ── Compaction per layer ──────────────────────────────────────────────────
 	const byLayerCompact: ProcessedWord[][] = Array.from({ length: numLayers }, () => []);
-	for (const w of result) byLayerCompact[w.layerIndex].push(w);
+	for (const w of bestWords) byLayerCompact[w.layerIndex].push(w);
 	for (const layer of byLayerCompact) {
 		await compactLayer(layer, 6, rx, ry, bboxFn, maybeYield);
-		yield { words: result, numLayers };
+		yield { words: bestWords, numLayers };
 	}
 
-	yield { words: result, numLayers };
+	yield { words: bestWords, numLayers };
 }
 
 // ── Flat layout ───────────────────────────────────────────────────────────────
