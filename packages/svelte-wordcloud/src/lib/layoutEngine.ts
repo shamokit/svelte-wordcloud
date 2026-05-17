@@ -134,6 +134,7 @@ async function placeSpiral(
 	grid: SpatialGrid | null,
 	bboxFn: BBoxFn,
 	maybeYield: () => Promise<void>,
+	maxSteps = MAX_SPIRAL_STEPS,
 ): Promise<{ x: number; y: number } | null> {
 	const { hw, hh } = bboxFn(word, fontSize);
 	const xMax = rxBound - hw;
@@ -157,7 +158,7 @@ async function placeSpiral(
 		);
 	};
 
-	for (let i = 0; i < MAX_SPIRAL_STEPS; i++) {
+	for (let i = 0; i < maxSteps; i++) {
 		if (i % 150 === 0) await maybeYield();
 		const r = spiralStep * Math.sqrt(i);
 		const angle = i * GOLDEN_ANGLE;
@@ -179,6 +180,7 @@ export async function placeAdjacent(
 	bboxFn: BBoxFn,
 	randomness: number,
 	maybeYield: () => Promise<void>,
+	maxSpiralSteps = MAX_SPIRAL_STEPS,
 ): Promise<{ x: number; y: number } | null> {
 	const { hw, hh } = bboxFn(word, fontSize);
 	const xMax = rxBound - hw;
@@ -268,7 +270,7 @@ export async function placeAdjacent(
 	const hit2 = tryList(crossCands, isValid);
 	if (hit2) return hit2;
 
-	return placeSpiral(word, fontSize, rxBound, ryBound, occupied, grid, bboxFn, maybeYield);
+	return placeSpiral(word, fontSize, rxBound, ryBound, occupied, grid, bboxFn, maybeYield, maxSpiralSteps);
 }
 
 export async function compactLayer(
@@ -447,9 +449,6 @@ export async function* computeLayout3D(
 	const maxFByH = ry / charH;
 	const minF = Math.min(rx, ry) * 0.08;
 	const initialMaxF = Math.min(rawMaxF, maxFByW, maxFByH);
-	const TARGET_COVERAGE = 0.5;
-	const MAX_LAYOUT_ATTEMPTS = 5;
-
 	const computeSizes = (maxF: number) =>
 		sorted.map((item) => {
 			const sqrtVal = Math.sqrt(item.counts);
@@ -465,75 +464,68 @@ export async function* computeLayout3D(
 			return { item, fontSize, color: item.color ?? computedWordColor };
 		});
 
-	let currentMaxF = initialMaxF;
-	let best: Layout3DResult = { words: [], numLayers: 1 };
+	const sizes = computeSizes(initialMaxF);
+	const { cellW, cellH } = gridCellSize(bboxFn, sizes);
+	const newLayer = (): LayerState => ({
+		occupied: [],
+		grid: new SpatialGrid(cellW, cellH),
+	});
+	const layers: LayerState[] = [newLayer()];
+	const result: ProcessedWord[] = [];
 
-	for (let attempt = 0; attempt < MAX_LAYOUT_ATTEMPTS; attempt++) {
-		if (attempt > 0) yield { words: [], numLayers: 1 };
+	// Fewer spiral steps for 3D: words that miss go to the next layer (still displayed).
+	const SPIRAL_STEPS_3D = 800;
+	// Yield at most once per this many newly-placed words to cap render overhead.
+	const YIELD_BATCH = 15;
 
-		const sizes = computeSizes(currentMaxF);
-		const { cellW, cellH } = gridCellSize(bboxFn, sizes);
-		const newLayer = (): LayerState => ({
-			occupied: [],
-			grid: new SpatialGrid(cellW, cellH),
-		});
-		const layers: LayerState[] = [newLayer()];
-		const result: ProcessedWord[] = [];
+	// Process layer by layer: fill the current layer before creating the next.
+	// Each layer's words are pre-scaled to a cap set by the previous layer, so
+	// they are placed at their final size — every layer packs densely, and
+	// deeper layers are progressively smaller (depth cue) without leaving gaps.
+	let unplaced = sizes;
+	// Upper bound on font size for the current layer (Infinity → layer 0, full size).
+	let layerCap = Infinity;
+	while (unplaced.length > 0) {
+		const li = layers.length - 1;
+		const { occupied, grid } = layers[li];
 
-		for (const { item, fontSize, color } of sizes) {
+		// Scale this layer's words down to the cap so placement uses final sizes.
+		if (layerCap < Infinity) {
+			const curMaxF = Math.max(...unplaced.map((u) => u.fontSize));
+			if (curMaxF > layerCap) {
+				const s = layerCap / curMaxF;
+				unplaced = unplaced.map((u) => ({
+					...u,
+					fontSize: Math.max(minF, u.fontSize * s),
+				}));
+			}
+		}
+
+		const overflow: typeof sizes = [];
+		let anyPlaced = false;
+		let placedSinceYield = 0;
+		let layerMinF = Infinity;
+
+		for (const { item, fontSize, color } of unplaced) {
 			const { hw, hh } = bboxFn(item.word, fontSize);
 
-			let placed = false;
-			for (let li = 0; li < layers.length; li++) {
-				const { occupied, grid } = layers[li];
-				const pos = await placeAdjacent(
-					item.word,
-					fontSize,
-					rx,
-					ry,
-					occupied,
-					grid,
-					bboxFn,
-					randomness,
-					maybeYield,
-				);
-				if (pos) {
-					const bbox = { cx: pos.x, cy: pos.y, hw, hh };
-					grid.insert(occupied.length, bbox);
-					occupied.push(bbox);
-					result.push({
-						...item,
-						fontSize,
-						layerIndex: li,
-						x: pos.x,
-						y: pos.y,
-						z: -li * layerSpacing,
-						color,
-					});
-					placed = true;
-					break;
-				}
-			}
+			const pos = await placeAdjacent(
+				item.word,
+				fontSize,
+				rx,
+				ry,
+				occupied,
+				grid,
+				bboxFn,
+				randomness,
+				maybeYield,
+				SPIRAL_STEPS_3D,
+			);
 
-			if (!placed) {
-				const li = layers.length;
-				const layer = newLayer();
-				layers.push(layer);
-				const pos =
-					(await placeAdjacent(
-						item.word,
-						fontSize,
-						rx,
-						ry,
-						[],
-						null,
-						bboxFn,
-						randomness,
-						maybeYield,
-					)) ?? { x: 0, y: 0 };
+			if (pos) {
 				const bbox = { cx: pos.x, cy: pos.y, hw, hh };
-				layer.grid.insert(0, bbox);
-				layer.occupied.push(bbox);
+				grid.insert(occupied.length, bbox);
+				occupied.push(bbox);
 				result.push({
 					...item,
 					fontSize,
@@ -543,43 +535,28 @@ export async function* computeLayout3D(
 					z: -li * layerSpacing,
 					color,
 				});
-			}
-
-			yield { words: result, numLayers: layers.length };
-		}
-
-		best = { words: result, numLayers: layers.length };
-
-		if (best.numLayers === 1) break;
-		const totalBBoxArea = best.words.reduce((s, w) => {
-			const { hw, hh } = bboxFn(w.word, w.fontSize);
-			return s + 4 * hw * hh;
-		}, 0);
-		if (totalBBoxArea / (viewArea * best.numLayers) >= TARGET_COVERAGE) break;
-		currentMaxF *= 0.82;
-	}
-
-	const { words: bestWords, numLayers } = best;
-
-	// ── Layer font-size scaling ───────────────────────────────────────────────
-	if (numLayers > 1) {
-		const byLayer: ProcessedWord[][] = Array.from({ length: numLayers }, () => []);
-		for (const w of bestWords) byLayer[w.layerIndex].push(w);
-		for (let li = 1; li < numLayers; li++) {
-			const prev = byLayer[li - 1];
-			const cur = byLayer[li];
-			if (!prev.length || !cur.length) continue;
-			const prevMinF = Math.min(...prev.map((w) => w.fontSize));
-			const curMaxF = Math.max(...cur.map((w) => w.fontSize));
-			if (curMaxF > prevMinF) {
-				const scale = prevMinF / curMaxF;
-				for (const w of cur) w.fontSize *= scale;
+				if (fontSize < layerMinF) layerMinF = fontSize;
+				anyPlaced = true;
+				if (++placedSinceYield >= YIELD_BATCH) {
+					placedSinceYield = 0;
+					yield { words: result, numLayers: layers.length };
+				}
+			} else {
+				overflow.push({ item, fontSize, color });
 			}
 		}
+
+		yield { words: result, numLayers: layers.length };
+		unplaced = overflow;
+		if (!anyPlaced) break;
+		if (unplaced.length > 0) {
+			// Next layer's largest word must not exceed this layer's smallest.
+			layerCap = Math.max(layerMinF, minF);
+			layers.push(newLayer());
+		}
 	}
-	for (const w of bestWords) {
-		if (w.fontSize < minF) w.fontSize = minF;
-	}
+
+	const { words: bestWords, numLayers } = { words: result, numLayers: layers.length };
 
 	// ── Compaction per layer ──────────────────────────────────────────────────
 	const byLayerCompact: ProcessedWord[][] = Array.from({ length: numLayers }, () => []);

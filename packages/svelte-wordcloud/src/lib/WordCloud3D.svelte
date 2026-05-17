@@ -79,6 +79,10 @@
 	let wordLayout = $state<Layout3DResult>({ words: [], numLayers: 1 });
 	let isLoading = $state(false);
 
+	// Track the data reference to know when to clear the display vs. quiet-recompute.
+	// Plain variable (not $state) so reading/writing it doesn't re-trigger the effect.
+	let lastData: typeof ctx.data | null = null;
+
 	$effect(() => {
 		const params: Layout3DParams = {
 			data: ctx.data,
@@ -95,16 +99,25 @@
 			computedWordColor,
 		};
 
-		wordLayout = { words: [], numLayers: 1 };
-		isLoading = true;
+		// Only clear the display and show the spinner when word data itself changes.
+		// For cosmetic re-runs (container resize, font metrics, color), keep
+		// showing the previous layout silently while the new computation runs.
+		if (ctx.data !== lastData) {
+			lastData = ctx.data;
+			wordLayout = { words: [], numLayers: 1 };
+			isLoading = true;
+		}
 		let cancelled = false;
 
 		(async () => {
-			for await (const partial of computeLayout3D(params)) {
-				if (cancelled) return;
-				wordLayout = partial;
+			try {
+				for await (const partial of computeLayout3D(params)) {
+					if (cancelled) return;
+					wordLayout = partial;
+				}
+			} finally {
+				if (!cancelled) isLoading = false;
 			}
-			if (!cancelled) isLoading = false;
 		})();
 
 		return () => {
@@ -617,6 +630,8 @@
 		flex-direction: column;
 		align-items: center;
 		flex-shrink: 0;
+		/* Fixed width so the layer-count text never reflows the canvas. */
+		width: var(--wc-scrollbar-size, 40px);
 		padding-block: var(--wc-scrollbar-padding, 8px);
 		gap: var(--wc-scrollbar-gap, 4px);
 	}
@@ -626,8 +641,14 @@
 		padding-block: calc(var(--wc-scrollbar-padding, 8px) / 2);
 		padding-inline: var(--wc-scrollbar-padding, 8px);
 	}
+	/*
+	 * Reserve the scrollbar gutter even when hidden. Using `display: none` would
+	 * resize the canvas, which feeds back into rx/ry and re-triggers the layout
+	 * effect — an infinite recompute loop.
+	 */
 	:where([data-wc-depth-col][data-wc-hidden]) {
-		display: none;
+		visibility: hidden;
+		pointer-events: none;
 	}
 
 	:where([data-wc-depth-col][data-wc-loading]) {
