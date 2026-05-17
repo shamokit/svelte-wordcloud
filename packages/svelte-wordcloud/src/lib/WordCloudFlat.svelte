@@ -9,7 +9,7 @@
 	import type { WordCloudFlatProps, ProcessedWord, WordItem } from './types.js';
 	import { getWCContext } from './WordCloud.svelte';
 	import { createFontMetrics } from './fontMetrics.svelte.js';
-	import { computeLayoutFlat, type LayoutFlatParams } from './layoutEngine.js';
+	import { computeLayoutFlat, type LayoutFlatParams, CHAR_W_FALLBACK } from './layoutEngine.js';
 
 	const {
 		fontUrl,
@@ -35,7 +35,7 @@
 	const TAN30 = Math.tan(Math.PI / 6); // tan(30°) for FOV=60
 	// Gap between words in CSS pixels. Converted to world units at runtime.
 	const GAP_PX = 16;
-	const MIN_ZOOM = 0.2;
+	const MIN_ZOOM_FLOOR = 0.05;
 	// Matches default WordCloud3D (layerSpacing=12 × 0.75)
 	const VIEWING_DIST = 9;
 
@@ -110,25 +110,51 @@
 		};
 	});
 
+	// Dynamic minZoom: zoom level where the outermost word is exactly at the viewport edge.
+	// Recomputed whenever the layout changes; defaults to 1.0 until layout resolves.
+	const dynMinZoom = $derived((() => {
+		if (wordLayout.length === 0) return 1.0;
+		let result = 1.0;
+		for (const w of wordLayout) {
+			const ww = wordWidths[w.word] ?? w.word.length * CHAR_W_FALLBACK;
+			const wh = wordHalfH[w.word] ?? charH * 0.6;
+			const hw = (ww * w.fontSize) / 2;
+			const hh = wh * w.fontSize;
+			const xEdge = Math.abs(w.x) + hw;
+			const yEdge = Math.abs(w.y) + hh;
+			if (xEdge > 0) result = Math.min(result, rx / xEdge);
+			if (yEdge > 0) result = Math.min(result, ry / yEdge);
+		}
+		return Math.max(MIN_ZOOM_FLOOR, result);
+	})());
+
 	// Flat always has exactly 1 layer — assign directly at init (no $effect needed)
 	ctx.numLayers = 1;
 	ctx.currentLayer = 1;
 	ctx.scrollProgress = 0;
-	// Zoom range does not change during the component's lifetime.
-	// untrack signals that only the initial value is needed, no reactivity.
-	ctx.minZoom = MIN_ZOOM;
 	ctx.maxZoom = untrack(() => maxZoom);
 	ctx.zoom = 1.0;
-	ctx.zoomProgress = (1 - MIN_ZOOM) / (untrack(() => maxZoom) - MIN_ZOOM);
-	// zoomTo/zoomStep: closures read the latest values at call time, so direct assignment is fine
+	ctx.minZoom = 1.0; // updated reactively below once layout resolves
+	ctx.zoomProgress = 0; // updated reactively below
+	// zoomTo/zoomStep: closures read dynMinZoom at call time via applyZoom
 	ctx.zoomTo = (progress: number) => {
-		applyZoom(MIN_ZOOM + progress * (maxZoom - MIN_ZOOM));
+		applyZoom(dynMinZoom + progress * (maxZoom - dynMinZoom));
 	};
 	ctx.zoomStep = (dir: 1 | -1) => {
 		// +1 = zoom in, −1 = zoom out; step = 10 % of total range
-		const step = (maxZoom - MIN_ZOOM) * 0.1;
+		const step = (maxZoom - dynMinZoom) * 0.1;
 		applyZoom(zoom + dir * step);
 	};
+
+	// Keep ctx.minZoom and ctx.zoomProgress in sync whenever dynMinZoom changes
+	$effect(() => {
+		ctx.minZoom = dynMinZoom;
+		if (zoom < dynMinZoom) {
+			applyZoom(dynMinZoom);
+		} else {
+			ctx.zoomProgress = (zoom - dynMinZoom) / (maxZoom - dynMinZoom);
+		}
+	});
 
 	// ── Zoom & Pan ────────────────────────────────────────────────────────────
 	const prefersReducedMotion =
@@ -165,11 +191,11 @@
 	}
 
 	function applyZoom(newZoom: number) {
-		zoom = Math.max(MIN_ZOOM, Math.min(maxZoom, newZoom));
+		zoom = Math.max(dynMinZoom, Math.min(maxZoom, newZoom));
 		zoomSpring.set(zoom);
 		// Zoom is event-driven; update context directly
 		ctx.zoom = zoom;
-		ctx.zoomProgress = (zoom - MIN_ZOOM) / (maxZoom - MIN_ZOOM);
+		ctx.zoomProgress = (zoom - dynMinZoom) / (maxZoom - dynMinZoom);
 		// Update cursor directly (no $effect needed)
 		if (canvasWrapEl && !isDragging) {
 			canvasWrapEl.style.cursor = 'grab';

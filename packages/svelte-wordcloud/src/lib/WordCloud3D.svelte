@@ -129,8 +129,8 @@
 	const minZ = $derived(
 		-(wordLayout.numLayers - 1) * layerSpacing + initViewingDist,
 	);
-	// Extended scroll bounds: EXTEND_LAYERS beyond each end (use initLayerSpacing — same as maxZ/minZ)
-	const scrollMaxZ = maxZ + EXTEND_LAYERS * initLayerSpacing;
+	// Extend scroll range past the last layer only; layer 1 is the minimum (all words fit at that depth)
+	const scrollMaxZ = maxZ;
 	const scrollMinZ = $derived(minZ - EXTEND_LAYERS * initLayerSpacing);
 
 	// scrollProgress covers the full extended range [0 = scrollMaxZ, 1 = scrollMinZ]
