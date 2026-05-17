@@ -6,7 +6,7 @@ description: 3D マルチレイヤーワードクラウドコンポーネント�
 import WordCloud3DDemo from '../../../../components/WordCloud3DDemo.svelte';
 import WordCloudHeavyDemo from '../../../../components/WordCloudHeavyDemo.svelte';
 
-`WordCloud3D` は WebGL（Three.js / Threlte 経由）を使って複数の深度レイヤーにワードをレンダリングします。`Ctrl + Wheel`、ピンチズーム、またはビルトインの深度スクロールバーでレイヤー間を移動できます（レイヤーが 1 つの場合はスクロールバーは自動的に非表示になります）。
+`WordCloud3D` は WebGL（Three.js / Threlte 経由）を使って複数の深度レイヤーにワードをレンダリングします。深度レイヤーのナビゲーションはビルトインの深度スクロールバーまたはピンチジェスチャーで行います。ズームは `Ctrl + Wheel` またはビルトインのズームスクロールバーで操作できます。
 
 `WordCloud` の子孫要素である必要があります。
 
@@ -21,7 +21,7 @@ import WordCloudHeavyDemo from '../../../../components/WordCloudHeavyDemo.svelte
 | Prop | 型 | デフォルト | 説明 |
 | ---- | -- | ---------- | ---- |
 | `fontUrl` | `string` | — | **必須。** フォントファイルのURL（TTF/OTF/WOFF）。本番環境ではファイルをセルフホストしてください。CDN URL（Google Fonts など）はバージョン番号が変更される可能性があります。 |
-| `wheelScrollSpeed` | `number` | `1` | `Ctrl + Wheel` とピンチズームの速度倍率。 |
+| `wheelScrollSpeed` | `number` | `1` | ピンチ深度スクロールの速度倍率。 |
 | `layout` | `WordCloud3DLayout` | `{}` | 配置・サイズに関するオプション（下記参照）。 |
 | `a11y` | `WordCloud3DA11y` | `{}` | アクセシビリティラベルと ARIA テキスト（下記参照）。 |
 | `onWordClick` | `(word: WordItem) => void` | — | ワードがクリックされたときに呼び出されます。 |
@@ -41,6 +41,8 @@ import WordCloudHeavyDemo from '../../../../components/WordCloudHeavyDemo.svelte
 | ---- | -- | ---------- | ---- |
 | `depthValueText` | `(current: number, total: number) => string` | `` (c, t) => `Layer ${c} / ${t}` `` | ビルトイン深度スライダーの `aria-valuetext`。ローカライズ用。 |
 | `depthLabel` | `string` | `'Depth'` | 深度スライダーのアクセシブルラベルテキスト。 |
+| `zoomValueText` | `(zoom: number) => string` | `` (z) => `${z.toFixed(1)}x` `` | ビルトインズームスライダーの `aria-valuetext`。ローカライズ用。 |
+| `zoomLabel` | `string` | `'Zoom'` | ズームスライダーのアクセシブルラベルテキスト。 |
 | `panHint` | `string` | `'Arrow keys to pan'` | キーボードパンコントロールがフォーカスされたときに表示される短いヒントテキスト。 |
 | `panLabel` | `string` | `'Pan camera. Use arrow keys to move the view.'` | キーボードパンコントロールボタンのスクリーンリーダー向け説明。 |
 | `resetPanLabel` | `string` | `'Reset pan (double-click)'` | パンリセットボタンのスクリーンリーダー向けラベル。 |

@@ -118,6 +118,8 @@
 	// untrack signals that only the initial value is needed, no reactivity.
 	ctx.minZoom = MIN_ZOOM;
 	ctx.maxZoom = untrack(() => maxZoom);
+	ctx.zoom = 1.0;
+	ctx.zoomProgress = (1 - MIN_ZOOM) / (untrack(() => maxZoom) - MIN_ZOOM);
 	// zoomTo/zoomStep: closures read the latest values at call time, so direct assignment is fine
 	ctx.zoomTo = (progress: number) => {
 		applyZoom(MIN_ZOOM + progress * (maxZoom - MIN_ZOOM));

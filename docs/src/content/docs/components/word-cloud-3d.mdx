@@ -6,7 +6,7 @@ description: 3D multi-layer word cloud component.
 import WordCloud3DDemo from '../../../components/WordCloud3DDemo.svelte';
 import WordCloudHeavyDemo from '../../../components/WordCloudHeavyDemo.svelte';
 
-`WordCloud3D` renders words across multiple depth layers using WebGL (Three.js via Threlte). The viewer can navigate layers with `Ctrl + Wheel`, pinch-to-zoom, or the built-in depth scrollbar (rendered automatically; hidden when there is only one layer).
+`WordCloud3D` renders words across multiple depth layers using WebGL (Three.js via Threlte). Depth layers are navigated with the built-in depth scrollbar or pinch gesture. Zoom is controlled with `Ctrl + Wheel` or the built-in zoom scrollbar.
 
 Must be a descendant of `WordCloud`.
 
@@ -21,7 +21,7 @@ Must be a descendant of `WordCloud`.
 | Prop | Type | Default | Description |
 | ---- | ---- | ------- | ----------- |
 | `fontUrl` | `string` | — | **Required.** URL of the font file (TTF/OTF/WOFF). For production use, self-host the file — CDN URLs (e.g. Google Fonts) may change. |
-| `wheelScrollSpeed` | `number` | `1` | Multiplier for `Ctrl + Wheel` and pinch-zoom speed. |
+| `wheelScrollSpeed` | `number` | `1` | Multiplier for pinch depth-scroll speed. |
 | `layout` | `WordCloud3DLayout` | `{}` | Layout and sizing options (see below). |
 | `a11y` | `WordCloud3DA11y` | `{}` | Accessibility labels and ARIA text (see below). |
 | `onWordClick` | `(word: WordItem) => void` | — | Called when a word is clicked. |
@@ -41,6 +41,8 @@ Must be a descendant of `WordCloud`.
 | --- | ---- | ------- | ----------- |
 | `depthValueText` | `(current: number, total: number) => string` | `` (c, t) => `Layer ${c} / ${t}` `` | `aria-valuetext` for the built-in depth slider. Use for localisation. |
 | `depthLabel` | `string` | `'Depth'` | Accessible label text for the depth slider. |
+| `zoomValueText` | `(zoom: number) => string` | `` (z) => `${z.toFixed(1)}x` `` | `aria-valuetext` for the built-in zoom slider. Use for localisation. |
+| `zoomLabel` | `string` | `'Zoom'` | Accessible label text for the zoom slider. |
 | `panHint` | `string` | `'Arrow keys to pan'` | Short visible hint shown inside the keyboard pan control when focused. |
 | `panLabel` | `string` | `'Pan camera. Use arrow keys to move the view.'` | Screen-reader description for the keyboard pan control button. |
 | `resetPanLabel` | `string` | `'Reset pan (double-click)'` | Screen-reader label for the reset pan button. |

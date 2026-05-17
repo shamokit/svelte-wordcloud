@@ -36,6 +36,8 @@
 	const TAN30 = Math.tan(Math.PI / 6); // tan(30°) = tan(FOV/2) for FOV=60
 	// Gap between words in CSS pixels. Converted to world units at runtime.
 	const GAP_PX = 16;
+	const MIN_ZOOM = 0.3;
+	const MAX_ZOOM = 3.0;
 
 	// ── Font metrics ──────────────────────────────────────────────────────────
 	const metrics = createFontMetrics(
@@ -121,6 +123,24 @@
 		damping: prefersReducedMotion ? 1 : 0.78,
 	});
 
+	let zoom3D = $state(1.0);
+	const zoom3DSpring = new Spring(1.0, {
+		stiffness: prefersReducedMotion ? 1 : 0.1,
+		damping: prefersReducedMotion ? 1 : 0.8,
+	});
+
+	// camera Z adjusted for zoom: dividing viewing distance by zoom moves camera closer (zoom in)
+	const effectiveCameraZ = $derived(
+		camSpring.current - initViewingDist * (1 - 1 / zoom3DSpring.current),
+	);
+
+	function applyZoom3D(newZoom: number) {
+		zoom3D = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
+		zoom3DSpring.set(zoom3D);
+		ctx.zoom = zoom3D;
+		ctx.zoomProgress = (zoom3D - MIN_ZOOM) / (MAX_ZOOM - MIN_ZOOM);
+	}
+
 	const maxZ = initViewingDist;
 	const minZ = $derived(
 		-(wordLayout.numLayers - 1) * layerSpacing + initViewingDist,
@@ -150,6 +170,18 @@
 		targetZ = Math.max(minZ, Math.min(maxZ, targetZ - dir * step));
 		camSpring.set(targetZ);
 		syncScrollCtx();
+	};
+
+	ctx.minZoom = MIN_ZOOM;
+	ctx.maxZoom = MAX_ZOOM;
+	ctx.zoom = 1.0;
+	ctx.zoomProgress = (1 - MIN_ZOOM) / (MAX_ZOOM - MIN_ZOOM);
+	ctx.zoomTo = (progress: number) => {
+		applyZoom3D(MIN_ZOOM + progress * (MAX_ZOOM - MIN_ZOOM));
+	};
+	ctx.zoomStep = (dir: 1 | -1) => {
+		const step = (MAX_ZOOM - MIN_ZOOM) * 0.1;
+		applyZoom3D(zoom3D + dir * step);
 	};
 
 	// ── Pan ───────────────────────────────────────────────────────────────────
@@ -248,6 +280,66 @@
 		}
 	});
 
+	// ── Inline zoom scrollbar state ──────────────────────────────────────────
+	const zoomLabel     = $derived(a11y.zoomLabel     ?? 'Zoom');
+	const zoomValueText = $derived(a11y.zoomValueText ?? ((z: number) => `${z.toFixed(1)}x`));
+
+	let zoomTrackEl = $state<HTMLDivElement | null>(null);
+	let isZoomDragging = false;
+	let zoomDragStartPos = 0;
+	let zoomDragStartProgress = 0;
+
+	function handleZoomThumbKeydown(e: KeyboardEvent) {
+		const isHorizontal = ctx.scrollbarOrientation === 'horizontal';
+		if (e.key === (isHorizontal ? 'ArrowLeft' : 'ArrowDown')) {
+			e.preventDefault();
+			ctx.zoomStep(-1);
+		} else if (e.key === (isHorizontal ? 'ArrowRight' : 'ArrowUp')) {
+			e.preventDefault();
+			ctx.zoomStep(1);
+		}
+	}
+
+	function handleZoomThumbPointerDown(e: PointerEvent) {
+		isZoomDragging = true;
+		zoomDragStartPos =
+			ctx.scrollbarOrientation === 'horizontal' ? e.clientX : e.clientY;
+		zoomDragStartProgress = ctx.zoomProgress;
+		(e.currentTarget as Element).setPointerCapture(e.pointerId);
+		e.preventDefault();
+	}
+
+	function handleZoomThumbPointerMove(e: PointerEvent) {
+		if (!isZoomDragging || !zoomTrackEl) return;
+		const isHorizontal = ctx.scrollbarOrientation === 'horizontal';
+		const trackSize = isHorizontal
+			? zoomTrackEl.clientWidth
+			: zoomTrackEl.clientHeight;
+		if (trackSize <= 0) return;
+		const raw = isHorizontal
+			? e.clientX - zoomDragStartPos
+			: e.clientY - zoomDragStartPos;
+		const delta = isHorizontal ? raw : -raw;
+		ctx.zoomTo(
+			Math.max(0, Math.min(1, zoomDragStartProgress + delta / trackSize)),
+		);
+	}
+
+	function handleZoomThumbPointerUp() {
+		isZoomDragging = false;
+	}
+
+	function handleZoomTrackClick(e: MouseEvent) {
+		if ((e.target as Element).closest('[data-wc-zoom-thumb]')) return;
+		if (!zoomTrackEl) return;
+		const isHorizontal = ctx.scrollbarOrientation === 'horizontal';
+		const rect = zoomTrackEl.getBoundingClientRect();
+		const fraction = isHorizontal
+			? (e.clientX - rect.left) / rect.width
+			: 1 - (e.clientY - rect.top) / rect.height;
+		ctx.zoomTo(Math.max(0, Math.min(1, fraction)));
+	}
+
 	// ── Inline depth scrollbar state ─────────────────────────────────────────
 	let depthTrackEl = $state<HTMLDivElement | null>(null);
 	let isDepthDragging = false;
@@ -324,10 +416,8 @@
 			if (!e.ctrlKey) return;
 			e.preventDefault();
 			if (isLoading) return;
-			const delta = e.deltaY * 0.007 * wheelScrollSpeed * layerSpacing;
-			targetZ = Math.max(minZ, Math.min(maxZ, targetZ + delta));
-			camSpring.set(targetZ);
-			syncScrollCtx();
+			const factor = e.deltaY > 0 ? 1 / 1.06 : 1.06;
+			applyZoom3D(zoom3D * factor);
 		}
 
 		wrap.addEventListener('wheel', onWheel, { passive: false });
@@ -509,7 +599,7 @@
 					words={wordLayout.words}
 					{cameraX}
 					{cameraY}
-					cameraZ={camSpring.current}
+					cameraZ={effectiveCameraZ}
 					{layerSpacing}
 					{fontUrl}
 					onWordClick={sceneWordClick}
@@ -565,6 +655,38 @@
 					onpointermove={handleDepthThumbPointerMove}
 					onpointerup={handleDepthThumbPointerUp}
 					onpointercancel={handleDepthThumbPointerUp}
+				></button>
+			</div>
+		</div>
+		<div data-wc-zoom-col data-wc-orientation={ctx.scrollbarOrientation}>
+			<span data-wc-zoom-label id={ctx.zoomLabelId}>{zoomLabel}</span>
+			<div data-wc-zoom-indicator aria-hidden="true">
+				×{ctx.zoom.toFixed(1)}
+			</div>
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
+			<div
+				role="presentation"
+				data-wc-zoom-track
+				data-wc-orientation={ctx.scrollbarOrientation}
+				style:--wc-progress={ctx.zoomProgress}
+				bind:this={zoomTrackEl}
+				onclick={handleZoomTrackClick}
+			>
+				<button
+					type="button"
+					data-wc-zoom-thumb
+					role="slider"
+					aria-orientation={ctx.scrollbarOrientation}
+					aria-labelledby={ctx.zoomLabelId}
+					aria-valuemin={ctx.minZoom}
+					aria-valuemax={ctx.maxZoom}
+					aria-valuenow={ctx.zoom}
+					aria-valuetext={zoomValueText(ctx.zoom)}
+					onkeydown={handleZoomThumbKeydown}
+					onpointerdown={handleZoomThumbPointerDown}
+					onpointermove={handleZoomThumbPointerMove}
+					onpointerup={handleZoomThumbPointerUp}
+					onpointercancel={handleZoomThumbPointerUp}
 				></button>
 			</div>
 		</div>
@@ -751,6 +873,152 @@
 
 	:where([data-wc-depth-thumb]):focus-visible {
 		outline: none;
+	}
+
+	:where([data-wc-zoom-col]) {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		flex-shrink: 0;
+		padding-block: var(--wc-scrollbar-padding, 8px);
+		gap: var(--wc-scrollbar-gap, 4px);
+	}
+	:where([data-wc-zoom-col][data-wc-orientation='horizontal']) {
+		flex-direction: row;
+		width: 100%;
+		padding-block: calc(var(--wc-scrollbar-padding, 8px) / 2);
+		padding-inline: var(--wc-scrollbar-padding, 8px);
+	}
+	:where([data-wc-zoom-col]) :where([data-wc-zoom-track]) {
+		flex: 1;
+	}
+	:where([data-wc-zoom-label]) {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
+	}
+	:where([data-wc-zoom-indicator]) {
+		font-family: monospace;
+		font-size: var(--wc-indicator-font-size, 10px);
+		color: color-mix(in srgb, var(--wc-color, currentColor) 80%, transparent);
+		line-height: 1;
+		white-space: nowrap;
+		user-select: none;
+		font-variant-numeric: tabular-nums;
+	}
+	:where([data-wc-zoom-track]) {
+		--wc-thumb-size: 32px;
+		--wc-dot-size: 7px;
+		--wc-dot-color: color-mix(
+			in srgb,
+			var(--wc-color, currentColor) 70%,
+			transparent
+		);
+		--wc-thumb-color: var(--wc-dot-color);
+		--wc-thumb-color-hover: color-mix(
+			in srgb,
+			var(--wc-color, currentColor) 15%,
+			#000
+		);
+		--wc-thumb-ring-color-hover: var(--wc-color, currentColor);
+
+		background: transparent;
+		position: relative;
+		container-type: size;
+		cursor: pointer;
+	}
+	:where([data-wc-zoom-track])::before {
+		content: '';
+		position: absolute;
+		background: var(--wc-dot-color);
+		border-radius: calc(var(--wc-dot-size) / 2);
+		opacity: var(--wc-track-opacity, 0.3);
+		transition: opacity 0.15s;
+		pointer-events: none;
+	}
+	:where([data-wc-zoom-track]):hover::before {
+		opacity: 1;
+	}
+	:where([data-wc-zoom-thumb]) {
+		position: absolute;
+		min-width: var(--wc-thumb-size);
+		min-height: var(--wc-thumb-size);
+		width: var(--wc-thumb-size);
+		height: var(--wc-thumb-size);
+		border-radius: 50%;
+		background: transparent;
+		border: none;
+		padding: 0;
+		cursor: grab;
+		touch-action: none;
+		transition: transform 0.08s ease;
+		z-index: 1;
+	}
+	:where([data-wc-zoom-thumb]):active {
+		cursor: grabbing;
+	}
+	:where([data-wc-zoom-thumb])::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		margin: auto;
+		width: var(--wc-dot-size);
+		height: var(--wc-dot-size);
+		border-radius: 50%;
+		background: var(--wc-thumb-color);
+		transition:
+			transform 0.15s,
+			background 0.15s,
+			box-shadow 0.15s;
+	}
+	:where([data-wc-zoom-track]):hover :where([data-wc-zoom-thumb])::after,
+	:where([data-wc-zoom-thumb]):focus-visible::after {
+		transform: scale(1.6);
+		background: var(--wc-thumb-color-hover);
+		box-shadow: 0 0 0 1.5px var(--wc-thumb-ring-color-hover);
+	}
+	:where([data-wc-zoom-thumb]):focus-visible {
+		outline: none;
+	}
+	:where([data-wc-zoom-track][data-wc-orientation='vertical']) {
+		width: var(--wc-thumb-size);
+		border-radius: calc(var(--wc-thumb-size) / 2);
+	}
+	:where([data-wc-zoom-track][data-wc-orientation='vertical'])::before {
+		inset-block: 0;
+		left: calc((var(--wc-thumb-size) - var(--wc-dot-size)) / 2);
+		width: var(--wc-dot-size);
+	}
+	:where([data-wc-zoom-track][data-wc-orientation='vertical'])
+		:where([data-wc-zoom-thumb]) {
+		inset-inline: 0;
+		top: calc((var(--wc-dot-size) - var(--wc-thumb-size)) / 2);
+		transform: translateY(
+			calc((1 - var(--wc-progress, 0)) * (100cqh - var(--wc-dot-size)))
+		);
+	}
+	:where([data-wc-zoom-track][data-wc-orientation='horizontal']) {
+		height: var(--wc-thumb-size);
+		border-radius: calc(var(--wc-thumb-size) / 2);
+	}
+	:where([data-wc-zoom-track][data-wc-orientation='horizontal'])::before {
+		inset-inline: 0;
+		top: calc((var(--wc-thumb-size) - var(--wc-dot-size)) / 2);
+		height: var(--wc-dot-size);
+	}
+	:where([data-wc-zoom-track][data-wc-orientation='horizontal'])
+		:where([data-wc-zoom-thumb]) {
+		inset-block: 0;
+		left: calc((var(--wc-dot-size) - var(--wc-thumb-size)) / 2);
+		transform: translateX(
+			calc(var(--wc-progress, 0) * (100cqi - var(--wc-dot-size)))
+		);
 	}
 
 	/* ── vertical (default) ─────────────────────────────────────────────── */
