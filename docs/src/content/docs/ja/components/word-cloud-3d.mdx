@@ -6,7 +6,7 @@ description: 3D マルチレイヤーワードクラウドコンポーネント�
 import WordCloud3DDemo from '../../../../components/WordCloud3DDemo.svelte';
 import WordCloudHeavyDemo from '../../../../components/WordCloudHeavyDemo.svelte';
 
-`WordCloud3D` は WebGL（Three.js / Threlte 経由）を使って複数の深度レイヤーにワードをレンダリングします。深度レイヤーのナビゲーションはビルトインの深度スクロールバーまたはピンチジェスチャーで行います。ズームは `Ctrl + Wheel` またはビルトインのズームスクロールバーで操作できます。
+`WordCloud3D` は WebGL（Three.js / Threlte 経由）を使って複数の深度レイヤーにワードをレンダリングします。`Ctrl + Wheel`、ピンチジェスチャー、またはビルトインの深度スクロールバーでレイヤー間を移動できます。スクロール範囲は最初と最後のレイヤーを少し超えて延長されており、端にあるワードも確認できます。
 
 `WordCloud` の子孫要素である必要があります。
 
@@ -21,7 +21,7 @@ import WordCloudHeavyDemo from '../../../../components/WordCloudHeavyDemo.svelte
 | Prop | 型 | デフォルト | 説明 |
 | ---- | -- | ---------- | ---- |
 | `fontUrl` | `string` | — | **必須。** フォントファイルのURL（TTF/OTF/WOFF）。本番環境ではファイルをセルフホストしてください。CDN URL（Google Fonts など）はバージョン番号が変更される可能性があります。 |
-| `wheelScrollSpeed` | `number` | `1` | ピンチ深度スクロールの速度倍率。 |
+| `wheelScrollSpeed` | `number` | `1` | `Ctrl + Wheel` とピンチ深度スクロールの速度倍率。 |
 | `layout` | `WordCloud3DLayout` | `{}` | 配置・サイズに関するオプション（下記参照）。 |
 | `a11y` | `WordCloud3DA11y` | `{}` | アクセシビリティラベルと ARIA テキスト（下記参照）。 |
 | `onWordClick` | `(word: WordItem) => void` | — | ワードがクリックされたときに呼び出されます。 |

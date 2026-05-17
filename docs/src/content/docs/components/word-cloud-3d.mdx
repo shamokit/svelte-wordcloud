@@ -6,7 +6,7 @@ description: 3D multi-layer word cloud component.
 import WordCloud3DDemo from '../../../components/WordCloud3DDemo.svelte';
 import WordCloudHeavyDemo from '../../../components/WordCloudHeavyDemo.svelte';
 
-`WordCloud3D` renders words across multiple depth layers using WebGL (Three.js via Threlte). Depth layers are navigated with the built-in depth scrollbar or pinch gesture. Zoom is controlled with `Ctrl + Wheel` or the built-in zoom scrollbar.
+`WordCloud3D` renders words across multiple depth layers using WebGL (Three.js via Threlte). The viewer can navigate layers with `Ctrl + Wheel`, pinch gesture, or the built-in depth scrollbar. The scroll range extends slightly beyond the first and last layer so words near the edges can be inspected.
 
 Must be a descendant of `WordCloud`.
 
@@ -21,7 +21,7 @@ Must be a descendant of `WordCloud`.
 | Prop | Type | Default | Description |
 | ---- | ---- | ------- | ----------- |
 | `fontUrl` | `string` | — | **Required.** URL of the font file (TTF/OTF/WOFF). For production use, self-host the file — CDN URLs (e.g. Google Fonts) may change. |
-| `wheelScrollSpeed` | `number` | `1` | Multiplier for pinch depth-scroll speed. |
+| `wheelScrollSpeed` | `number` | `1` | Multiplier for `Ctrl + Wheel` and pinch depth-scroll speed. |
 | `layout` | `WordCloud3DLayout` | `{}` | Layout and sizing options (see below). |
 | `a11y` | `WordCloud3DA11y` | `{}` | Accessibility labels and ARIA text (see below). |
 | `onWordClick` | `(word: WordItem) => void` | — | Called when a word is clicked. |

@@ -161,15 +161,6 @@ export type WordCloud3DA11y = {
 	 * Default: 'Reset pan (double-click)'
 	 */
 	resetPanLabel?: string;
-	/**
-	 * Accessible label text for the zoom slider. Default: 'Zoom'.
-	 */
-	zoomLabel?: string;
-	/**
-	 * Returns the `aria-valuetext` for the built-in zoom slider.
-	 * Use for localisation. Default: `(z) => \`${z.toFixed(1)}x\``.
-	 */
-	zoomValueText?: (zoom: number) => string;
 };
 
 export type WordCloud3DProps = {
