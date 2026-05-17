@@ -128,6 +128,21 @@
 		return Math.max(MIN_ZOOM_FLOOR, result);
 	})());
 
+	/**
+	 * Actual bounding half-extents of all placed words.
+	 * Used to set the pan limit: the camera must be able to reach the farthest word.
+	 */
+	const wordBounds = $derived((() => {
+		let maxX = 0, maxY = 0;
+		for (const w of wordLayout) {
+			const ww = wordWidths[w.word] ?? w.word.length * CHAR_W_FALLBACK;
+			const wh = wordHalfH[w.word] ?? charH * 0.6;
+			maxX = Math.max(maxX, Math.abs(w.x) + (ww * w.fontSize) / 2);
+			maxY = Math.max(maxY, Math.abs(w.y) + wh * w.fontSize);
+		}
+		return { maxX, maxY };
+	})());
+
 	// Flat always has exactly 1 layer — assign directly at init (no $effect needed)
 	ctx.numLayers = 1;
 	ctx.currentLayer = 1;
@@ -179,14 +194,20 @@
 	const cameraY = $derived(panSpring.current.y);
 
 	/**
-	 * Pan is constrained to keep the word cloud content within the viewport.
-	 * At zoom level z the visible half-width is rx/z, so the camera can travel
-	 * at most rx*(1 − 1/z) from center before the content exits the viewport.
+	 * Pan is constrained so that the camera can reach every placed word but
+	 * cannot scroll past the farthest content.
+	 *
+	 * At zoom level z the visible half-extent is rx/z.  The camera centre
+	 * (panX) can travel at most (wordBounds.maxX − rx/z) before the far edge
+	 * of the content leaves the viewport.  When everything fits inside the
+	 * visible area (maxX ≤ rx/z) the limit is 0 — camera stays centred.
 	 */
 	function clampPan(px: number, py: number) {
+		const limitX = Math.max(0, wordBounds.maxX - rx / zoom);
+		const limitY = Math.max(0, wordBounds.maxY - ry / zoom);
 		return {
-			px: Math.max(-rx, Math.min(rx, px)),
-			py: Math.max(-ry, Math.min(ry, py)),
+			px: Math.max(-limitX, Math.min(limitX, px)),
+			py: Math.max(-limitY, Math.min(limitY, py)),
 		};
 	}
 
