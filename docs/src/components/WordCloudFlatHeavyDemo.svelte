@@ -5,7 +5,7 @@
 
 <div class="demo-wrap not-content">
 	<WordCloud data={heavyWords} --wc-background="#0a1a0a" --wc-color="#a8e6c8">
-		<WordCloudFlat fontUrl={FONT_URL} layout={{ fontSizeContrast: 1.2 }} />
+		<WordCloudFlat fontUrl={FONT_URL} />
 	</WordCloud>
 </div>
 
