@@ -718,9 +718,9 @@ export async function* computeLayoutFlat(
 		grid.insert(occupied.length, bbox);
 		occupied.push(bbox);
 		result.push({ ...item, fontSize, layerIndex: 0, x: pos.x, y: pos.y, z: 0, color });
-		yield result;
+		yield result.slice();
 	}
 
 	await compactLayer(result, 20, placementRx, placementRy, bboxFn, maybeYield);
-	yield result;
+	yield result.slice();
 }

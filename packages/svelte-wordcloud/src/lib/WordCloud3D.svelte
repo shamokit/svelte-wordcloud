@@ -106,18 +106,33 @@
 		// Only clear the display and show the spinner when word data itself changes.
 		// For cosmetic re-runs (container resize, font metrics, color), keep
 		// showing the previous layout silently while the new computation runs.
-		if (ctx.data !== lastData) {
+		// NOTE: isDataChange must be computed BEFORE updating lastData.
+		const isDataChange = ctx.data !== lastData;
+		if (isDataChange) {
 			lastData = ctx.data;
 			wordLayout = { words: [], numLayers: 1 };
 			isLoading = true;
 		}
+		// For data changes: yield progressively so words appear as they are placed.
+		// For cosmetic re-runs (resize, font-metrics, color): hold the existing
+		// layout until the new one is fully computed, then swap atomically.
+		// This prevents the word count from visibly regressing N→1→N during a
+		// background recompute.
 		let cancelled = false;
 
 		(async () => {
 			try {
+				let buffer: Layout3DResult | null = null;
 				for await (const partial of computeLayout3D(params)) {
 					if (cancelled) return;
-					wordLayout = partial;
+					if (isDataChange) {
+						wordLayout = partial; // show words as they appear
+					} else {
+						buffer = partial; // accumulate silently
+					}
+				}
+				if (!cancelled && buffer !== null) {
+					wordLayout = buffer; // apply completed result in one shot
 				}
 			} finally {
 				if (!cancelled) isLoading = false;

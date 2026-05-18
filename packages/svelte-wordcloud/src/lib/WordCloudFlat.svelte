@@ -114,18 +114,33 @@
 		// Only clear the canvas and show the spinner when the word data itself
 		// changes. For cosmetic re-runs (resize, font-metrics arrival, color
 		// change) keep the previous layout visible while the new one computes.
-		if (ctx.data !== lastFlatData) {
+		// NOTE: isDataChange must be computed BEFORE updating lastFlatData.
+		const isDataChange = ctx.data !== lastFlatData;
+		if (isDataChange) {
 			lastFlatData = ctx.data;
 			wordLayout = [];
 			isLoading = true;
 		}
+		// For data changes: yield progressively so words appear as they are placed.
+		// For cosmetic re-runs (resize, font-metrics, color): hold the existing
+		// layout until the new one is fully computed, then swap atomically.
+		// This prevents the word count from visibly regressing N→1→N during a
+		// background recompute.
 		let cancelled = false;
 
 		(async () => {
 			try {
+				let buffer: ProcessedWord[] | null = null;
 				for await (const partial of computeLayoutFlat(params)) {
 					if (cancelled) return;
-					wordLayout = partial;
+					if (isDataChange) {
+						wordLayout = partial; // show words as they appear
+					} else {
+						buffer = partial; // accumulate silently
+					}
+				}
+				if (!cancelled && buffer !== null) {
+					wordLayout = buffer; // apply completed result in one shot
 				}
 			} finally {
 				if (!cancelled) isLoading = false;
