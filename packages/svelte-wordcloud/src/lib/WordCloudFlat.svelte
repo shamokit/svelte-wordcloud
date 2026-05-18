@@ -83,7 +83,19 @@
 	let wordLayout = $state<ProcessedWord[]>([]);
 	let isLoading = $state(false);
 
+	// Track the data reference so we can distinguish a word-data change (which
+	// should clear the canvas and show the spinner) from a cosmetic re-run such
+	// as a container resize or font-metrics update (which should keep the
+	// previous layout visible while the new computation runs silently).
+	let lastFlatData: typeof ctx.data | null = null;
+
 	$effect(() => {
+		// Wait until the container has been measured (the 150 ms debounce in the
+		// size-tracking effect above). Starting before that would use a 16:9
+		// fallback aspect-ratio, then re-run 150 ms later with the real size —
+		// a spurious cancel-and-restart that makes rendering appear to stop midway.
+		if (layoutH === 0 || layoutW === 0) return;
+
 		const params: LayoutFlatParams = {
 			data: ctx.data,
 			wordWidths,
@@ -99,16 +111,25 @@
 			computedWordColor,
 		};
 
-		wordLayout = [];
-		isLoading = true;
+		// Only clear the canvas and show the spinner when the word data itself
+		// changes. For cosmetic re-runs (resize, font-metrics arrival, color
+		// change) keep the previous layout visible while the new one computes.
+		if (ctx.data !== lastFlatData) {
+			lastFlatData = ctx.data;
+			wordLayout = [];
+			isLoading = true;
+		}
 		let cancelled = false;
 
 		(async () => {
-			for await (const partial of computeLayoutFlat(params)) {
-				if (cancelled) return;
-				wordLayout = partial;
+			try {
+				for await (const partial of computeLayoutFlat(params)) {
+					if (cancelled) return;
+					wordLayout = partial;
+				}
+			} finally {
+				if (!cancelled) isLoading = false;
 			}
-			if (!cancelled) isLoading = false;
 		})();
 
 		return () => {

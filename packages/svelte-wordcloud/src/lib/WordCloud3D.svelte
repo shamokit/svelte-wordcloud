@@ -84,6 +84,10 @@
 	let lastData: typeof ctx.data | null = null;
 
 	$effect(() => {
+		// Wait until the container has been measured (150 ms debounce) so the
+		// first layout uses the real aspect ratio, not the 16:9 fallback.
+		if (layoutH === 0 || layoutW === 0) return;
+
 		const params: Layout3DParams = {
 			data: ctx.data,
 			wordWidths,
