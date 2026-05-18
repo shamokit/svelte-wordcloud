@@ -89,6 +89,7 @@
 	// previous layout visible while the new computation runs silently).
 	let lastFlatData: typeof ctx.data | null = null;
 
+	let _runId = 0;
 	$effect(() => {
 		// Wait until the container has been measured (the 150 ms debounce in the
 		// size-tracking effect above). Starting before that would use a 16:9
@@ -127,12 +128,16 @@
 		// This prevents the word count from visibly regressing N→1→N during a
 		// background recompute.
 		let cancelled = false;
+		const runId = ++_runId;
+		console.log(`[WCFlat] run#${runId} start — isDataChange=${isDataChange} charH=${charH.toFixed(3)} wordWidths=${Object.keys(wordWidths).length}`);
 
 		(async () => {
 			try {
+				let count = 0;
 				let buffer: ProcessedWord[] | null = null;
 				for await (const partial of computeLayoutFlat(params)) {
-					if (cancelled) return;
+					if (cancelled) { console.log(`[WCFlat] run#${runId} cancelled at word ${count}`); return; }
+					count = partial.length;
 					if (isDataChange) {
 						wordLayout = partial; // show words as they appear
 					} else {
@@ -140,14 +145,17 @@
 					}
 				}
 				if (!cancelled && buffer !== null) {
+					console.log(`[WCFlat] run#${runId} buffer apply — ${buffer.length} words`);
 					wordLayout = buffer; // apply completed result in one shot
 				}
+				console.log(`[WCFlat] run#${runId} done — ${count} words placed, cancelled=${cancelled}`);
 			} finally {
 				if (!cancelled) isLoading = false;
 			}
 		})();
 
 		return () => {
+			console.log(`[WCFlat] run#${runId} cleanup (cancelled)`);
 			cancelled = true;
 		};
 	});
