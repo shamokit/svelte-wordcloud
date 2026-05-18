@@ -1,7 +1,7 @@
 import type { WordItem } from '@shamokit/svelte-wordcloud';
 
 export const FONT_URL =
-	'https://cdn.jsdelivr.net/fontsource/fonts/m-plus-1p@5/japanese-400-normal.woff2';
+	'https://fonts.gstatic.com/s/notosansjp/v56/-F6jfjtqLzI2JPCgQBnw7HFyzSD-AsregP8VFBEj75s.ttf';
 
 export const words: WordItem[] = [
 	{ word: 'Svelte', counts: 600, link: 'https://svelte.dev' },
