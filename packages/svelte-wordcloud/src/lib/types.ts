@@ -166,8 +166,8 @@ export type WordCloud3DA11y = {
 export type WordCloud3DProps = {
 	/**
 	 * URL of the font file (TTF/OTF/WOFF/WOFF2) to use for rendering.
-	 * Inter (Latin) is a clean, widely-available choice:
-	 * https://cdn.jsdelivr.net/fontsource/fonts/inter@5/latin-400-normal.ttf
+	 * M PLUS 1p covers Japanese + Latin and works well as a default:
+	 * https://cdn.jsdelivr.net/fontsource/fonts/m-plus-1p@5/japanese-400-normal.woff2
 	 */
 	fontUrl: string;
 	/**
