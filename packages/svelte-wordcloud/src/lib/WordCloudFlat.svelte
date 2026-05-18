@@ -148,7 +148,8 @@
 					console.log(`[WCFlat] run#${runId} buffer apply — ${buffer.length} words`);
 					wordLayout = buffer; // apply completed result in one shot
 				}
-				console.log(`[WCFlat] run#${runId} done — ${count} words placed, cancelled=${cancelled}`);
+				const inViewport = wordLayout.filter(w => Math.abs(w.x) < rx && Math.abs(w.y) < ry).length;
+			console.log(`[WCFlat] run#${runId} done — ${count} placed, ${inViewport}/${wordLayout.length} in viewport (rx=${rx.toFixed(2)}, ry=${ry.toFixed(2)})`);
 			} finally {
 				if (!cancelled) isLoading = false;
 			}
