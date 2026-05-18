@@ -165,9 +165,9 @@ export type WordCloud3DA11y = {
 
 export type WordCloud3DProps = {
 	/**
-	 * URL of the font file (TTF/OTF/WOFF) to use for rendering.
-	 * Noto Sans JP covers CJK + Latin and works well as a default:
-	 * https://fonts.gstatic.com/s/notosansjp/v56/-F6jfjtqLzI2JPCgQBnw7HFyzSD-AsregP8VFBEj75s.ttf
+	 * URL of the font file (TTF/OTF/WOFF/WOFF2) to use for rendering.
+	 * Inter (Latin) is a clean, widely-available choice:
+	 * https://cdn.jsdelivr.net/fontsource/fonts/inter@5/latin-400-normal.ttf
 	 */
 	fontUrl: string;
 	/**
