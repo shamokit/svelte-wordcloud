@@ -356,11 +356,7 @@ export async function compactLayer(
 			.sort((a, b) => a.d - b.d)
 			.map((o) => o.i);
 
-		let n = 0;
 		for (const i of order) {
-			// Check wall-clock budget every 8 words so long compaction runs
-			// (many words × many iterations) don't block the main thread for > ~8 ms.
-			if (n++ % 8 === 0) await maybeYield();
 			const b = boxes[i];
 
 			if (b.cx * b.cx + b.cy * b.cy > 1e-4) {
