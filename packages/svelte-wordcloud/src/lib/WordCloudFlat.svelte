@@ -96,12 +96,6 @@
 	// previous layout visible while the new computation runs silently).
 	let lastFlatData: typeof ctx.data | null = null;
 
-	// Debug: track every isLoading change
-	$effect(() => {
-		console.log(`[WCFlat] isLoading changed → ${isLoading}`);
-	});
-
-	let _runId = 0;
 	$effect(() => {
 		// Wait until the container has been measured (the 150 ms debounce in the
 		// size-tracking effect above). Starting before that would use a 16:9
@@ -129,7 +123,6 @@
 		// change) keep the previous layout visible while the new one computes.
 		// NOTE: isDataChange must be computed BEFORE updating lastFlatData.
 		const isDataChange = ctx.data !== lastFlatData;
-		console.log(`[WCFlat] run#${_runId + 1} effect triggered — isDataChange=${isDataChange} ctx.data.length=${ctx.data.length} lastFlatData=${lastFlatData?.length ?? 'null'} sameRef=${ctx.data === lastFlatData}`);
 		if (isDataChange) {
 			lastFlatData = ctx.data;
 			wordLayout = [];
@@ -141,16 +134,12 @@
 		// This prevents the word count from visibly regressing N→1→N during a
 		// background recompute.
 		let cancelled = false;
-		const runId = ++_runId;
-		console.log(`[WCFlat] run#${runId} start — isDataChange=${isDataChange} charH=${charH.toFixed(3)} wordWidths=${Object.keys(wordWidths).length}`);
 
 		(async () => {
 			try {
-				let count = 0;
 				let buffer: ProcessedWord[] | null = null;
 				for await (const partial of computeLayoutFlat(params)) {
-					if (cancelled) { console.log(`[WCFlat] run#${runId} cancelled at word ${count}`); return; }
-					count = partial.length;
+					if (cancelled) return;
 					if (isDataChange) {
 						wordLayout = partial; // show words as they appear
 					} else {
@@ -158,16 +147,12 @@
 					}
 				}
 				if (!cancelled && buffer !== null) {
-					console.log(`[WCFlat] run#${runId} buffer apply — ${buffer.length} words`);
 					wordLayout = buffer; // apply completed result in one shot
 				}
-				const inViewport = wordLayout.filter(w => Math.abs(w.x) < rx && Math.abs(w.y) < ry).length;
-			console.log(`[WCFlat] run#${runId} done — ${count} placed, ${inViewport}/${wordLayout.length} in viewport (rx=${rx.toFixed(2)}, ry=${ry.toFixed(2)})`);
 			} finally {
 				if (!cancelled) {
 					await tick();
 					if (!cancelled) {
-						console.log(`[WCFlat] run#${runId} finally — setting _finishedVersion after tick`);
 						_finishedVersion = _loadingVersion;
 					}
 				}
@@ -175,7 +160,6 @@
 		})();
 
 		return () => {
-			console.log(`[WCFlat] run#${runId} cleanup (cancelled)`);
 			cancelled = true;
 		};
 	});

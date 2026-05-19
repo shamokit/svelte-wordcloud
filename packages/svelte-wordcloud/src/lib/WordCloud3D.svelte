@@ -192,6 +192,22 @@
 		ctx.scrollProgress = scrollProgress;
 	});
 
+	// ── Clamp targetZ when scroll bounds change ───────────────────────────────
+	// A cosmetic re-run (e.g. font metrics arriving) may yield a different
+	// numLayers, which shifts scrollMinZ. If targetZ is now outside the valid
+	// range, animate it smoothly to the nearest boundary so the view doesn't
+	// get stuck at a depth that can no longer be reached by scroll events.
+	$effect(() => {
+		const min = scrollMinZ; // reactive — re-runs whenever numLayers changes
+		untrack(() => {
+			if (targetZ < min) {
+				targetZ = min;
+				camSpring.set(min);
+				syncScrollCtx();
+			}
+		});
+	});
+
 	function syncScrollCtx() {
 		ctx.scrollProgress = scrollProgress;
 		ctx.currentLayer = computeCurrentLayer(wordLayout.numLayers);
