@@ -81,7 +81,14 @@
 
 	// ── Layout (async generator) ──────────────────────────────────────────────
 	let wordLayout = $state<ProcessedWord[]>([]);
-	let isLoading = $state(false);
+
+	// Svelte 5 production バグ回避: $effect の sync ボディで書いた $state に
+	// 同じ effect の async IIFE から書いても subscriber に通知が届かない。
+	// そのため isLoading を $derived で管理し、async から書く変数 (_finishedVersion)
+	// は sync ボディでは一切触れない。
+	let _loadingVersion = $state(0);  // データ変更ランが始まるたびに sync でインクリメント
+	let _finishedVersion = $state(0); // ランが完了するたびに async で _loadingVersion の値をセット
+	const isLoading = $derived(_loadingVersion > _finishedVersion);
 
 	// Track the data reference so we can distinguish a word-data change (which
 	// should clear the canvas and show the spinner) from a cosmetic re-run such
@@ -126,7 +133,7 @@
 		if (isDataChange) {
 			lastFlatData = ctx.data;
 			wordLayout = [];
-			isLoading = true;
+			_loadingVersion++;
 		}
 		// For data changes: yield progressively so words appear as they are placed.
 		// For cosmetic re-runs (resize, font-metrics, color): hold the existing
@@ -158,14 +165,10 @@
 			console.log(`[WCFlat] run#${runId} done — ${count} placed, ${inViewport}/${wordLayout.length} in viewport (rx=${rx.toFixed(2)}, ry=${ry.toFixed(2)})`);
 			} finally {
 				if (!cancelled) {
-					// tick() を使って Svelte の現在の flush サイクルを抜けてから書き込む。
-					// $effect の sync ボディ内で書き込んだ $state を同じ effect の
-					// async IIFE から直接書き込んでも subscriber に通知が届かない
-					// Svelte 5 production ビルドの挙動を回避するため。
 					await tick();
 					if (!cancelled) {
-						console.log(`[WCFlat] run#${runId} finally — setting isLoading=false after tick`);
-						isLoading = false;
+						console.log(`[WCFlat] run#${runId} finally — setting _finishedVersion after tick`);
+						_finishedVersion = _loadingVersion;
 					}
 				}
 			}

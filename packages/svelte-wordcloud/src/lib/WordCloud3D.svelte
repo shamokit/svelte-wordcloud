@@ -77,7 +77,12 @@
 
 	// ── Layout (async generator) ──────────────────────────────────────────────
 	let wordLayout = $state<Layout3DResult>({ words: [], numLayers: 1 });
-	let isLoading = $state(false);
+
+	// Svelte 5 production バグ回避: $effect の sync ボディで書いた $state に
+	// 同じ effect の async IIFE から書いても subscriber に通知が届かない。
+	let _loadingVersion = $state(0);  // データ変更ランが始まるたびに sync でインクリメント
+	let _finishedVersion = $state(0); // ランが完了するたびに async で _loadingVersion の値をセット
+	const isLoading = $derived(_loadingVersion > _finishedVersion);
 
 	// Track the data reference to know when to clear the display vs. quiet-recompute.
 	// Plain variable (not $state) so reading/writing it doesn't re-trigger the effect.
@@ -111,7 +116,7 @@
 		if (isDataChange) {
 			lastData = ctx.data;
 			wordLayout = { words: [], numLayers: 1 };
-			isLoading = true;
+			_loadingVersion++;
 		}
 		// For data changes: yield progressively so words appear as they are placed.
 		// For cosmetic re-runs (resize, font-metrics, color): hold the existing
@@ -137,7 +142,7 @@
 			} finally {
 				if (!cancelled) {
 					await tick();
-					if (!cancelled) isLoading = false;
+					if (!cancelled) _finishedVersion = _loadingVersion;
 				}
 			}
 		})();
