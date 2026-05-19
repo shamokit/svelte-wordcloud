@@ -76,26 +76,25 @@
 
 {#each words as word (word.word)}
 	{@const opacity = getOpacity(word)}
-	{#if opacity > 0}
-		<Text
-			text={word.word}
-			fontSize={word.fontSize}
-			font={fontUrl}
-			position={[word.x, word.y, word.z]}
-			color={word.color}
-			anchorX="center"
-			anchorY="middle"
-			outlineWidth="1%"
-			outlineColor={word.color}
-			outlineOpacity={opacity}
-			fillOpacity={opacity}
-			onclick={() => onWordClick?.(word)}
-			onpointerenter={() => {
-				if (onWordClick) setCursor?.('pointer');
-			}}
-			onpointerleave={() => {
-				setCursor?.('');
-			}}
-		/>
-	{/if}
+	<Text
+		text={word.word}
+		fontSize={word.fontSize}
+		font={fontUrl}
+		position={[word.x, word.y, word.z]}
+		color={word.color}
+		anchorX="center"
+		anchorY="middle"
+		outlineWidth="1%"
+		outlineColor={word.color}
+		visible={opacity > 0}
+		outlineOpacity={opacity}
+		fillOpacity={opacity}
+		onclick={() => onWordClick?.(word)}
+		onpointerenter={() => {
+			if (onWordClick) setCursor?.('pointer');
+		}}
+		onpointerleave={() => {
+			setCursor?.('');
+		}}
+	/>
 {/each}

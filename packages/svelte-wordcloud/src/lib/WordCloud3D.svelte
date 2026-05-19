@@ -88,12 +88,6 @@
 	// Plain variable (not $state) so reading/writing it doesn't re-trigger the effect.
 	let lastData: typeof ctx.data | null = null;
 
-	// DEBUG
-	$effect(() => {
-		console.log(`[WC3D] isLoading → ${isLoading} (lv=${_loadingVersion} fv=${_finishedVersion})`);
-	});
-
-	let _runId = 0;
 	$effect(() => {
 		// Wait until the container has been measured (150 ms debounce) so the
 		// first layout uses the real aspect ratio, not the 16:9 fallback.
@@ -130,14 +124,12 @@
 		// This prevents the word count from visibly regressing N→1→N during a
 		// background recompute.
 		let cancelled = false;
-		const runId = ++_runId;
-		console.log(`[WC3D] run#${runId} start isDataChange=${isDataChange} charH=${charH.toFixed(3)} lv=${_loadingVersion} fv=${_finishedVersion}`);
 
 		(async () => {
 			try {
 				let buffer: Layout3DResult | null = null;
 				for await (const partial of computeLayout3D(params)) {
-					if (cancelled) { console.log(`[WC3D] run#${runId} cancelled mid-loop`); return; }
+					if (cancelled) return;
 					if (isDataChange) {
 						wordLayout = partial; // show words as they appear
 					} else {
@@ -147,22 +139,17 @@
 				if (!cancelled && buffer !== null) {
 					wordLayout = buffer; // apply completed result in one shot
 				}
-				console.log(`[WC3D] run#${runId} generator done, numLayers=${wordLayout.numLayers}`);
 			} finally {
-				console.log(`[WC3D] run#${runId} finally cancelled=${cancelled} lv=${_loadingVersion} fv=${_finishedVersion}`);
 				if (!cancelled) {
 					await tick();
-					console.log(`[WC3D] run#${runId} after tick cancelled=${cancelled}`);
 					if (!cancelled) {
 						_finishedVersion = _loadingVersion;
-						console.log(`[WC3D] run#${runId} set _finishedVersion=${_loadingVersion}`);
 					}
 				}
 			}
 		})();
 
 		return () => {
-			console.log(`[WC3D] run#${runId} cleanup (cancelled)`);
 			cancelled = true;
 		};
 	});
@@ -356,7 +343,6 @@
 	}
 
 	function handleDepthThumbPointerDown(e: PointerEvent) {
-		console.log(`[WC3D] depthThumb pointerdown isLoading=${isLoading}`);
 		if (isLoading) return;
 		isDepthDragging = true;
 		depthDragStartPos =
@@ -412,12 +398,10 @@
 	$effect(() => {
 		const wrap = canvasWrapEl;
 		if (!wrap) return;
-		console.log(`[WC3D] wheel listener ADDED`);
 
 		function onWheel(e: WheelEvent) {
 			if (!e.ctrlKey) return;
 			e.preventDefault();
-			console.log(`[WC3D] wheel isLoading=${isLoading} targetZ=${targetZ.toFixed(2)} camCurr=${camSpring.current.toFixed(2)} scrollMinZ=${scrollMinZ.toFixed(2)}`);
 			if (isLoading) return;
 			const delta = e.deltaY * 0.007 * wheelScrollSpeed * layerSpacing;
 			targetZ = Math.max(scrollMinZ, Math.min(scrollMaxZ, targetZ + delta));
@@ -427,7 +411,6 @@
 
 		wrap.addEventListener('wheel', onWheel, { passive: false });
 		return () => {
-			console.log(`[WC3D] wheel listener REMOVED`);
 			wrap.removeEventListener('wheel', onWheel);
 		};
 	});
