@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Canvas } from '@threlte/core';
-	import { untrack } from 'svelte';
+	import { untrack, tick } from 'svelte';
 	import { Spring } from 'svelte/motion';
 	import { DEV } from 'esm-env';
 	import SceneFlat from './SceneFlat.svelte';
@@ -157,9 +157,17 @@
 				const inViewport = wordLayout.filter(w => Math.abs(w.x) < rx && Math.abs(w.y) < ry).length;
 			console.log(`[WCFlat] run#${runId} done — ${count} placed, ${inViewport}/${wordLayout.length} in viewport (rx=${rx.toFixed(2)}, ry=${ry.toFixed(2)})`);
 			} finally {
-				console.log(`[WCFlat] run#${runId} finally — cancelled=${cancelled}`);
-				if (!cancelled) isLoading = false;
-				console.log(`[WCFlat] run#${runId} finally done — isLoading=${isLoading}`);
+				if (!cancelled) {
+					// tick() を使って Svelte の現在の flush サイクルを抜けてから書き込む。
+					// $effect の sync ボディ内で書き込んだ $state を同じ effect の
+					// async IIFE から直接書き込んでも subscriber に通知が届かない
+					// Svelte 5 production ビルドの挙動を回避するため。
+					await tick();
+					if (!cancelled) {
+						console.log(`[WCFlat] run#${runId} finally — setting isLoading=false after tick`);
+						isLoading = false;
+					}
+				}
 			}
 		})();
 

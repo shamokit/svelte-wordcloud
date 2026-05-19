@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Canvas } from '@threlte/core';
 	import { Spring } from 'svelte/motion';
-	import { untrack } from 'svelte';
+	import { untrack, tick } from 'svelte';
 	import { DEV } from 'esm-env';
 	import Scene from './Scene.svelte';
 	import PanResetButton from './PanResetButton.svelte';
@@ -135,9 +135,10 @@
 					wordLayout = buffer; // apply completed result in one shot
 				}
 			} finally {
-				console.log(`[WC3D] finally — cancelled=${cancelled}`);
-				if (!cancelled) isLoading = false;
-				console.log(`[WC3D] finally done — isLoading=${isLoading}`);
+				if (!cancelled) {
+					await tick();
+					if (!cancelled) isLoading = false;
+				}
 			}
 		})();
 
