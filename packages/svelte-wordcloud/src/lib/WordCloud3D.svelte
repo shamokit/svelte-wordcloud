@@ -412,11 +412,12 @@
 	$effect(() => {
 		const wrap = canvasWrapEl;
 		if (!wrap) return;
+		console.log(`[WC3D] wheel listener ADDED`);
 
 		function onWheel(e: WheelEvent) {
 			if (!e.ctrlKey) return;
 			e.preventDefault();
-			console.log(`[WC3D] wheel isLoading=${isLoading} targetZ=${targetZ.toFixed(2)} scrollMinZ=${scrollMinZ.toFixed(2)} scrollMaxZ=${scrollMaxZ.toFixed(2)}`);
+			console.log(`[WC3D] wheel isLoading=${isLoading} targetZ=${targetZ.toFixed(2)} camCurr=${camSpring.current.toFixed(2)} scrollMinZ=${scrollMinZ.toFixed(2)}`);
 			if (isLoading) return;
 			const delta = e.deltaY * 0.007 * wheelScrollSpeed * layerSpacing;
 			targetZ = Math.max(scrollMinZ, Math.min(scrollMaxZ, targetZ + delta));
@@ -425,7 +426,10 @@
 		}
 
 		wrap.addEventListener('wheel', onWheel, { passive: false });
-		return () => wrap.removeEventListener('wheel', onWheel);
+		return () => {
+			console.log(`[WC3D] wheel listener REMOVED`);
+			wrap.removeEventListener('wheel', onWheel);
+		};
 	});
 
 	// ── Touch: two-finger pinch → depth navigation; single-finger → pan ────
