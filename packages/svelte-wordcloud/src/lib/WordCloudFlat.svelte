@@ -89,6 +89,11 @@
 	// previous layout visible while the new computation runs silently).
 	let lastFlatData: typeof ctx.data | null = null;
 
+	// Debug: track every isLoading change
+	$effect(() => {
+		console.log(`[WCFlat] isLoading changed → ${isLoading}`);
+	});
+
 	let _runId = 0;
 	$effect(() => {
 		// Wait until the container has been measured (the 150 ms debounce in the
@@ -117,6 +122,7 @@
 		// change) keep the previous layout visible while the new one computes.
 		// NOTE: isDataChange must be computed BEFORE updating lastFlatData.
 		const isDataChange = ctx.data !== lastFlatData;
+		console.log(`[WCFlat] run#${_runId + 1} effect triggered — isDataChange=${isDataChange} ctx.data.length=${ctx.data.length} lastFlatData=${lastFlatData?.length ?? 'null'} sameRef=${ctx.data === lastFlatData}`);
 		if (isDataChange) {
 			lastFlatData = ctx.data;
 			wordLayout = [];
