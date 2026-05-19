@@ -20,7 +20,7 @@ import WordCloudHeavyDemo from '../../../../components/WordCloudHeavyDemo.svelte
 
 | Prop | 型 | デフォルト | 説明 |
 | ---- | -- | ---------- | ---- |
-| `fontUrl` | `string` | — | **必須。** フォントファイルのURL（TTF/OTF/WOFF）。本番環境ではファイルをセルフホストしてください。CDN URL（Google Fonts など）はバージョン番号が変更される可能性があります。 |
+| `fontUrl` | `string` | — | **必須。** フォントファイルのURL（TTF/OTF/WOFF）。**セルフホストが必須です。** フォントファイルをプロジェクトの `public/` ディレクトリに配置し、パスを指定してください（例：`'/fonts/MyFont.ttf'`）。なお WOFF2 は非対応のため、TTF・OTF・WOFF をご利用ください。 |
 | `wheelScrollSpeed` | `number` | `1` | `Ctrl + Wheel` とピンチ深度スクロールの速度倍率。 |
 | `layout` | `WordCloud3DLayout` | `{}` | 配置・サイズに関するオプション（下記参照）。 |
 | `a11y` | `WordCloud3DA11y` | `{}` | アクセシビリティラベルと ARIA テキスト（下記参照）。 |
@@ -54,8 +54,9 @@ import WordCloudHeavyDemo from '../../../../components/WordCloudHeavyDemo.svelte
   import { WordCloud, WordCloud3D, WordCloudLabel } from '@shamokit/svelte-wordcloud';
   import type { WordItem } from '@shamokit/svelte-wordcloud';
 
-  const FONT_URL =
-    'https://fonts.gstatic.com/s/notosansjp/v56/-F6jfjtqLzI2JPCgQBnw7HFyzSD-AsregP8VFBEj75s.ttf';
+  // フォントファイルを public/fonts/ に配置し、パスで参照します。
+  // 外部 CDN URL は本番環境でブロックされるため、セルフホストが必要です。
+  const FONT_URL = '/fonts/NotoSansJP.ttf';
 
   const words: WordItem<{ link?: string }>[] = [
     { word: 'Svelte',     counts: 120, link: 'https://svelte.dev' },
