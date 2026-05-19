@@ -135,7 +135,9 @@
 					wordLayout = buffer; // apply completed result in one shot
 				}
 			} finally {
+				console.log(`[WC3D] finally — cancelled=${cancelled}`);
 				if (!cancelled) isLoading = false;
+				console.log(`[WC3D] finally done — isLoading=${isLoading}`);
 			}
 		})();
 

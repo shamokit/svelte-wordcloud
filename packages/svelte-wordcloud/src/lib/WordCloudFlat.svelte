@@ -151,7 +151,9 @@
 				const inViewport = wordLayout.filter(w => Math.abs(w.x) < rx && Math.abs(w.y) < ry).length;
 			console.log(`[WCFlat] run#${runId} done — ${count} placed, ${inViewport}/${wordLayout.length} in viewport (rx=${rx.toFixed(2)}, ry=${ry.toFixed(2)})`);
 			} finally {
+				console.log(`[WCFlat] run#${runId} finally — cancelled=${cancelled}`);
 				if (!cancelled) isLoading = false;
+				console.log(`[WCFlat] run#${runId} finally done — isLoading=${isLoading}`);
 			}
 		})();
 
