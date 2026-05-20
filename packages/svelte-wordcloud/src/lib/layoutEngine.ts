@@ -199,7 +199,7 @@ async function placeSpiral(
 	};
 
 	for (let i = 0; i < maxSteps; i++) {
-		if (i % 50 === 0) { const _p = maybeYield(); if (_p) await _p; }
+		if (i % 150 === 0) { const _p = maybeYield(); if (_p) await _p; }
 		const r = spiralStep * Math.sqrt(i);
 		const angle = i * GOLDEN_ANGLE;
 		const x = r * Math.cos(angle);
