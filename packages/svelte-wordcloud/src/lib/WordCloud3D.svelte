@@ -128,12 +128,21 @@
 		(async () => {
 			try {
 				let buffer: Layout3DResult | null = null;
+				// Throttle intermediate Svelte flushes to avoid O(N²) re-rendering cost.
+				// Each flush re-evaluates all N currently-placed words; without throttling,
+				// 37 flushes × growing N words = ~1,476ms of pure rendering overhead for
+				// 552 words. One flush per second keeps intermediates visually useful while
+				// staying well under the 50ms long-task threshold.
+				let lastDisplayMs = 0;
 				for await (const partial of computeLayout3D(params)) {
 					if (cancelled) return;
+					buffer = partial;
 					if (isDataChange) {
-						wordLayout = partial; // show words as they appear
-					} else {
-						buffer = partial; // accumulate silently
+						const now = performance.now();
+						if (now - lastDisplayMs > 1000) {
+							lastDisplayMs = now;
+							wordLayout = partial;
+						}
 					}
 				}
 				if (!cancelled && buffer !== null) {
