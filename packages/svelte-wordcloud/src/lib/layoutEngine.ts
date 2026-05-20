@@ -5,15 +5,26 @@ export const CHAR_W_FALLBACK = 0.6;
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 const MAX_SPIRAL_STEPS = 6000;
 
+// scheduler.yield() (Chrome/Edge 115+) resumes the caller at the earliest idle
+// slot without the ~4 ms minimum delay that setTimeout(0) imposes.
+// Falls back to setTimeout on Firefox / Safari.
+const _schedulerYield: (() => Promise<void>) | null = (() => {
+	if (typeof globalThis === 'undefined') return null;
+	const s = (globalThis as { scheduler?: { yield?: () => Promise<void> } }).scheduler;
+	return typeof s?.yield === 'function' ? () => s.yield!() : null;
+})();
+
 /**
- * Returns a yielder function that suspends the caller to the next macrotask
- * (via setTimeout) when more than `budgetMs` have elapsed since the last yield.
+ * Returns a yielder function that suspends the caller to the next idle slot
+ * when more than `budgetMs` of wall-clock time has elapsed since the last yield.
  *
- * Critically, the returned function is NOT async: when no yield is needed it
- * returns `void` synchronously so callers can skip the `await` entirely
- * with `const _p = maybeYield(); if (_p) await _p;`.
- * This avoids the microtask allocation that `async` functions always incur,
- * making it safe to call in tight inner loops without measurable overhead.
+ * The returned function is NOT async: when no yield is needed it returns `void`
+ * synchronously so callers can skip the `await` entirely with
+ * `const _p = maybeYield(); if (_p) await _p;`.
+ * This avoids the microtask allocation that `async` functions always incur.
+ *
+ * Uses `scheduler.yield()` when available (Chrome/Edge 115+) for near-zero
+ * resume latency; falls back to `setTimeout(0)` elsewhere.
  */
 export function makeYielder(budgetMs = 16): () => Promise<void> | void {
 	const perf = typeof performance !== 'undefined' ? performance : { now: () => Date.now() };
@@ -22,7 +33,7 @@ export function makeYielder(budgetMs = 16): () => Promise<void> | void {
 		const now = perf.now();
 		if (now - last > budgetMs) {
 			last = now;
-			return new Promise<void>((r) => setTimeout(r, 0));
+			return _schedulerYield ? _schedulerYield() : new Promise<void>((r) => setTimeout(r, 0));
 		}
 		// void — budget not yet exhausted, no yield needed
 	};
@@ -198,7 +209,7 @@ async function placeSpiral(
 	};
 
 	for (let i = 0; i < maxSteps; i++) {
-		if (i % 150 === 0) { const _p = maybeYield(); if (_p) await _p; }
+		if (i % 50 === 0) { const _p = maybeYield(); if (_p) await _p; }
 		const r = spiralStep * Math.sqrt(i);
 		const angle = i * GOLDEN_ANGLE;
 		const x = r * Math.cos(angle);
@@ -313,7 +324,7 @@ export async function placeAdjacent(
 		}
 	}
 
-	await maybeYield();
+	{ const _p = maybeYield(); if (_p) await _p; }
 
 	const hit2 = tryList(crossCands, isValid);
 	if (hit2) return hit2;
