@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Canvas } from '@threlte/core';
 	import { Spring } from 'svelte/motion';
-	import { untrack } from 'svelte';
+	import { untrack, tick } from 'svelte';
 	import { DEV } from 'esm-env';
 	import Scene from './Scene.svelte';
 	import PanResetButton from './PanResetButton.svelte';
@@ -77,13 +77,22 @@
 
 	// ── Layout (async generator) ──────────────────────────────────────────────
 	let wordLayout = $state<Layout3DResult>({ words: [], numLayers: 1 });
-	let isLoading = $state(false);
+
+	// Svelte 5 production バグ回避: $effect の sync ボディで書いた $state に
+	// 同じ effect の async IIFE から書いても subscriber に通知が届かない。
+	let _loadingVersion = $state(0);  // データ変更ランが始まるたびに sync でインクリメント
+	let _finishedVersion = $state(0); // ランが完了するたびに async で _loadingVersion の値をセット
+	const isLoading = $derived(_loadingVersion > _finishedVersion);
 
 	// Track the data reference to know when to clear the display vs. quiet-recompute.
 	// Plain variable (not $state) so reading/writing it doesn't re-trigger the effect.
 	let lastData: typeof ctx.data | null = null;
 
 	$effect(() => {
+		// Wait until the container has been measured (150 ms debounce) so the
+		// first layout uses the real aspect ratio, not the 16:9 fallback.
+		if (layoutH === 0 || layoutW === 0) return;
+
 		const params: Layout3DParams = {
 			data: ctx.data,
 			wordWidths,
@@ -102,21 +111,41 @@
 		// Only clear the display and show the spinner when word data itself changes.
 		// For cosmetic re-runs (container resize, font metrics, color), keep
 		// showing the previous layout silently while the new computation runs.
-		if (ctx.data !== lastData) {
+		// NOTE: isDataChange must be computed BEFORE updating lastData.
+		const isDataChange = ctx.data !== lastData;
+		if (isDataChange) {
 			lastData = ctx.data;
 			wordLayout = { words: [], numLayers: 1 };
-			isLoading = true;
+			_loadingVersion++;
 		}
+		// For data changes: yield progressively so words appear as they are placed.
+		// For cosmetic re-runs (resize, font-metrics, color): hold the existing
+		// layout until the new one is fully computed, then swap atomically.
+		// This prevents the word count from visibly regressing N→1→N during a
+		// background recompute.
 		let cancelled = false;
 
 		(async () => {
 			try {
+				let buffer: Layout3DResult | null = null;
 				for await (const partial of computeLayout3D(params)) {
 					if (cancelled) return;
-					wordLayout = partial;
+					if (isDataChange) {
+						wordLayout = partial; // show words as they appear
+					} else {
+						buffer = partial; // accumulate silently
+					}
+				}
+				if (!cancelled && buffer !== null) {
+					wordLayout = buffer; // apply completed result in one shot
 				}
 			} finally {
-				if (!cancelled) isLoading = false;
+				if (!cancelled) {
+					await tick();
+					if (!cancelled) {
+						_finishedVersion = _loadingVersion;
+					}
+				}
 			}
 		})();
 
@@ -163,6 +192,22 @@
 		ctx.numLayers = wordLayout.numLayers;
 		ctx.currentLayer = computeCurrentLayer(wordLayout.numLayers);
 		ctx.scrollProgress = scrollProgress;
+	});
+
+	// ── Clamp targetZ when scroll bounds change ───────────────────────────────
+	// A cosmetic re-run (e.g. font metrics arriving) may yield a different
+	// numLayers, which shifts scrollMinZ. If targetZ is now outside the valid
+	// range, animate it smoothly to the nearest boundary so the view doesn't
+	// get stuck at a depth that can no longer be reached by scroll events.
+	$effect(() => {
+		const min = scrollMinZ; // reactive — re-runs whenever numLayers changes
+		untrack(() => {
+			if (targetZ < min) {
+				targetZ = min;
+				camSpring.set(min);
+				syncScrollCtx();
+			}
+		});
 	});
 
 	function syncScrollCtx() {
@@ -365,7 +410,9 @@
 		}
 
 		wrap.addEventListener('wheel', onWheel, { passive: false });
-		return () => wrap.removeEventListener('wheel', onWheel);
+		return () => {
+			wrap.removeEventListener('wheel', onWheel);
+		};
 	});
 
 	// ── Touch: two-finger pinch → depth navigation; single-finger → pan ────

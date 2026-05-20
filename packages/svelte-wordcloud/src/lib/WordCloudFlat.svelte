@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Canvas } from '@threlte/core';
-	import { untrack } from 'svelte';
+	import { untrack, tick } from 'svelte';
 	import { Spring } from 'svelte/motion';
 	import { DEV } from 'esm-env';
 	import SceneFlat from './SceneFlat.svelte';
@@ -81,9 +81,28 @@
 
 	// ── Layout (async generator) ──────────────────────────────────────────────
 	let wordLayout = $state<ProcessedWord[]>([]);
-	let isLoading = $state(false);
+
+	// Svelte 5 production バグ回避: $effect の sync ボディで書いた $state に
+	// 同じ effect の async IIFE から書いても subscriber に通知が届かない。
+	// そのため isLoading を $derived で管理し、async から書く変数 (_finishedVersion)
+	// は sync ボディでは一切触れない。
+	let _loadingVersion = $state(0);  // データ変更ランが始まるたびに sync でインクリメント
+	let _finishedVersion = $state(0); // ランが完了するたびに async で _loadingVersion の値をセット
+	const isLoading = $derived(_loadingVersion > _finishedVersion);
+
+	// Track the data reference so we can distinguish a word-data change (which
+	// should clear the canvas and show the spinner) from a cosmetic re-run such
+	// as a container resize or font-metrics update (which should keep the
+	// previous layout visible while the new computation runs silently).
+	let lastFlatData: typeof ctx.data | null = null;
 
 	$effect(() => {
+		// Wait until the container has been measured (the 150 ms debounce in the
+		// size-tracking effect above). Starting before that would use a 16:9
+		// fallback aspect-ratio, then re-run 150 ms later with the real size —
+		// a spurious cancel-and-restart that makes rendering appear to stop midway.
+		if (layoutH === 0 || layoutW === 0) return;
+
 		const params: LayoutFlatParams = {
 			data: ctx.data,
 			wordWidths,
@@ -99,16 +118,45 @@
 			computedWordColor,
 		};
 
-		wordLayout = [];
-		isLoading = true;
+		// Only clear the canvas and show the spinner when the word data itself
+		// changes. For cosmetic re-runs (resize, font-metrics arrival, color
+		// change) keep the previous layout visible while the new one computes.
+		// NOTE: isDataChange must be computed BEFORE updating lastFlatData.
+		const isDataChange = ctx.data !== lastFlatData;
+		if (isDataChange) {
+			lastFlatData = ctx.data;
+			wordLayout = [];
+			_loadingVersion++;
+		}
+		// For data changes: yield progressively so words appear as they are placed.
+		// For cosmetic re-runs (resize, font-metrics, color): hold the existing
+		// layout until the new one is fully computed, then swap atomically.
+		// This prevents the word count from visibly regressing N→1→N during a
+		// background recompute.
 		let cancelled = false;
 
 		(async () => {
-			for await (const partial of computeLayoutFlat(params)) {
-				if (cancelled) return;
-				wordLayout = partial;
+			try {
+				let buffer: ProcessedWord[] | null = null;
+				for await (const partial of computeLayoutFlat(params)) {
+					if (cancelled) return;
+					if (isDataChange) {
+						wordLayout = partial; // show words as they appear
+					} else {
+						buffer = partial; // accumulate silently
+					}
+				}
+				if (!cancelled && buffer !== null) {
+					wordLayout = buffer; // apply completed result in one shot
+				}
+			} finally {
+				if (!cancelled) {
+					await tick();
+					if (!cancelled) {
+						_finishedVersion = _loadingVersion;
+					}
+				}
 			}
-			if (!cancelled) isLoading = false;
 		})();
 
 		return () => {

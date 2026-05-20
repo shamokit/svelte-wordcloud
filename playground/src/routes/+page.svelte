@@ -8,9 +8,7 @@
 		WordCloudAudio,
 	} from '@shamokit/svelte-wordcloud';
 
-	// Noto Sans JP: CJK + Latin をカバー。自己ホストする場合はこの URL を差し替えてください。
-	const FONT_URL =
-		'https://fonts.gstatic.com/s/notosansjp/v56/-F6jfjtqLzI2JPCgQBnw7HFyzSD-AsregP8VFBEj75s.ttf';
+	const FONT_URL = '/font/NotoSansJP.ttf';
 	// ── Dataset: standard（現行・70語） ───────────────────────────────────────
 	const standard = [
 		{ word: '子育て支援', link: '#', counts: 980 },

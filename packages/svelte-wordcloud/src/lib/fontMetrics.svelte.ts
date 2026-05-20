@@ -40,6 +40,12 @@ export function createFontMetrics(
 		let remaining = words.length;
 		const measuredW: Record<string, number> = {};
 		const measuredHH: Record<string, number> = {};
+		// Collect the best capHeight/ascender seen across callbacks but do NOT
+		// publish it as a separate state update. Updating charH mid-stream would
+		// trigger a layout re-run before wordWidths is ready, causing the layout
+		// to be cancelled and restarted a second time. Instead we publish all
+		// three state variables atomically when remaining reaches 0.
+		let pendingCharH: number | null = null;
 		getTroika()
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			.then((mod: any) => {
@@ -60,11 +66,19 @@ export function createFontMetrics(
 								const w = info.caretPositions?.[word.length * 3];
 								if (typeof w === 'number' && w > 0) measuredW[word] = w;
 							}
-							if (Object.keys(measuredHH).length === 0) {
+							// Collect the first valid cap height but defer state update.
+							if (pendingCharH === null) {
 								const cap = info.capHeight ?? info.ascender;
-								if (typeof cap === 'number' && cap > 0 && cap < 1.5) charH = cap;
+								if (typeof cap === 'number' && cap > 0 && cap < 1.5) {
+									pendingCharH = cap;
+								}
 							}
 							if (--remaining === 0) {
+								// Publish all three state variables in one synchronous block so
+								// Svelte batches them into a single reactive flush. This means the
+								// layout effect re-runs exactly once when metrics arrive instead of
+								// potentially twice (once for charH, once for wordWidths/wordHalfH).
+								if (pendingCharH !== null) charH = pendingCharH;
 								wordWidths = { ...measuredW };
 								wordHalfH = { ...measuredHH };
 							}

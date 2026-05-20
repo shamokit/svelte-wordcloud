@@ -166,6 +166,7 @@ export type WordCloud3DA11y = {
 export type WordCloud3DProps = {
 	/**
 	 * URL of the font file (TTF/OTF/WOFF) to use for rendering.
+	 * Note: WOFF2 is not supported by troika-three-text — use TTF/OTF/WOFF.
 	 * Noto Sans JP covers CJK + Latin and works well as a default:
 	 * https://fonts.gstatic.com/s/notosansjp/v56/-F6jfjtqLzI2JPCgQBnw7HFyzSD-AsregP8VFBEj75s.ttf
 	 */

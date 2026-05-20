@@ -20,7 +20,7 @@ Must be a descendant of `WordCloud`.
 
 | Prop | Type | Default | Description |
 | ---- | ---- | ------- | ----------- |
-| `fontUrl` | `string` | — | **Required.** URL of the font file (TTF/OTF/WOFF). For production use, self-host the file — CDN URLs (e.g. Google Fonts) may change. |
+| `fontUrl` | `string` | — | **Required.** URL of the font file (TTF/OTF/WOFF). **Must be self-hosted.** Place the file in your project's `public/` directory and pass the path (e.g. `'/fonts/MyFont.ttf'`). Note: WOFF2 is not supported; use TTF, OTF, or WOFF. |
 | `maxZoom` | `number` | `2.0` | Maximum zoom level (minimum is always 1). |
 | `layout` | `WordCloudFlatLayout` | `{}` | Layout and sizing options (see below). |
 | `a11y` | `WordCloudFlatA11y` | `{}` | Accessibility labels and ARIA text (see below). |
@@ -51,8 +51,9 @@ Must be a descendant of `WordCloud`.
   import { WordCloud, WordCloudFlat, WordCloudLabel } from '@shamokit/svelte-wordcloud';
   import type { WordItem } from '@shamokit/svelte-wordcloud';
 
-  const FONT_URL =
-    'https://fonts.gstatic.com/s/notosansjp/v56/-F6jfjtqLzI2JPCgQBnw7HFyzSD-AsregP8VFBEj75s.ttf';
+  // Place your font file in public/fonts/ and reference it by path.
+  // External CDN URLs are blocked in production; self-hosting is required.
+  const FONT_URL = '/fonts/NotoSansJP.ttf';
 
   const words: WordItem<{ link?: string }>[] = [
     { word: 'Svelte',     counts: 120, link: 'https://svelte.dev' },

@@ -5,15 +5,26 @@ export const CHAR_W_FALLBACK = 0.6;
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 const MAX_SPIRAL_STEPS = 6000;
 
-export function makeYielder(budgetMs = 16): () => Promise<void> {
+/**
+ * Returns a yielder function that suspends the caller to the next macrotask
+ * (via setTimeout) when more than `budgetMs` have elapsed since the last yield.
+ *
+ * Critically, the returned function is NOT async: when no yield is needed it
+ * returns `void` synchronously so callers can skip the `await` entirely
+ * with `const _p = maybeYield(); if (_p) await _p;`.
+ * This avoids the microtask allocation that `async` functions always incur,
+ * making it safe to call in tight inner loops without measurable overhead.
+ */
+export function makeYielder(budgetMs = 16): () => Promise<void> | void {
 	const perf = typeof performance !== 'undefined' ? performance : { now: () => Date.now() };
 	let last = perf.now();
-	return async () => {
+	return () => {
 		const now = perf.now();
 		if (now - last > budgetMs) {
 			last = now;
-			await new Promise<void>((r) => setTimeout(r, 0));
+			return new Promise<void>((r) => setTimeout(r, 0));
 		}
+		// void — budget not yet exhausted, no yield needed
 	};
 }
 
@@ -157,7 +168,7 @@ async function placeSpiral(
 	occupied: BBox[],
 	grid: SpatialGrid | null,
 	bboxFn: BBoxFn,
-	maybeYield: () => Promise<void>,
+	maybeYield: () => Promise<void> | void,
 	maxSteps = MAX_SPIRAL_STEPS,
 ): Promise<{ x: number; y: number } | null> {
 	const { hw, hh } = bboxFn(word, fontSize);
@@ -187,7 +198,7 @@ async function placeSpiral(
 	};
 
 	for (let i = 0; i < maxSteps; i++) {
-		if (i % 150 === 0) await maybeYield();
+		if (i % 150 === 0) { const _p = maybeYield(); if (_p) await _p; }
 		const r = spiralStep * Math.sqrt(i);
 		const angle = i * GOLDEN_ANGLE;
 		const x = r * Math.cos(angle);
@@ -207,7 +218,7 @@ export async function placeAdjacent(
 	grid: SpatialGrid | null,
 	bboxFn: BBoxFn,
 	randomness: number,
-	maybeYield: () => Promise<void>,
+	maybeYield: () => Promise<void> | void,
 	maxSpiralSteps = MAX_SPIRAL_STEPS,
 ): Promise<{ x: number; y: number } | null> {
 	const { hw, hh } = bboxFn(word, fontSize);
@@ -271,7 +282,7 @@ export async function placeAdjacent(
 		}
 	}
 
-	await maybeYield();
+	{ const _p = maybeYield(); if (_p) await _p; }
 
 	const hit1 = tryList(jitCands, isValid) ?? tryList(exactCands, isValid);
 	if (hit1) return hit1;
@@ -316,7 +327,7 @@ export async function compactLayer(
 	rxBound: number,
 	ryBound: number,
 	bboxFn: BBoxFn,
-	maybeYield: () => Promise<void>,
+	maybeYield: () => Promise<void> | void,
 ): Promise<void> {
 	if (words.length === 0) return;
 
@@ -349,14 +360,19 @@ export async function compactLayer(
 	};
 
 	for (let iter = 0; iter < iterations; iter++) {
-		await maybeYield();
+		{ const _p = maybeYield(); if (_p) await _p; }
 
 		const order = boxes
 			.map((b, i) => ({ d: b.cx * b.cx + b.cy * b.cy, i }))
 			.sort((a, b) => a.d - b.d)
 			.map((o) => o.i);
 
+		let n = 0;
 		for (const i of order) {
+			// Zero-overhead clock check every 8 words: maybeYield() returns void
+			// synchronously when the budget hasn't elapsed, so no await and no
+			// microtask is created — just a performance.now() call + comparison.
+			if (n++ % 8 === 0) { const _p = maybeYield(); if (_p) await _p; }
 			const b = boxes[i];
 
 			if (b.cx * b.cx + b.cy * b.cy > 1e-4) {
@@ -718,9 +734,9 @@ export async function* computeLayoutFlat(
 		grid.insert(occupied.length, bbox);
 		occupied.push(bbox);
 		result.push({ ...item, fontSize, layerIndex: 0, x: pos.x, y: pos.y, z: 0, color });
-		yield result;
+		yield result.slice();
 	}
 
 	await compactLayer(result, 20, placementRx, placementRy, bboxFn, maybeYield);
-	yield result;
+	yield result.slice();
 }
