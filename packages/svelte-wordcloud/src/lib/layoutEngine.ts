@@ -7,11 +7,12 @@ const MAX_SPIRAL_STEPS = 6000;
 
 /**
  * Returns a yielder function that suspends the caller to the next macrotask
- * (via setTimeout) when more than `budgetMs` have elapsed since the last yield.
+ * (via setTimeout) when more than `budgetMs` of wall-clock time has elapsed
+ * since the last yield.
  *
- * Critically, the returned function is NOT async: when no yield is needed it
- * returns `void` synchronously so callers can skip the `await` entirely
- * with `const _p = maybeYield(); if (_p) await _p;`.
+ * The returned function is NOT async: when no yield is needed it returns `void`
+ * synchronously so callers can skip the `await` entirely with
+ * `const _p = maybeYield(); if (_p) await _p;`.
  * This avoids the microtask allocation that `async` functions always incur,
  * making it safe to call in tight inner loops without measurable overhead.
  */
@@ -69,6 +70,11 @@ export class SpatialGrid {
 	private cells = new Map<number, number[]>();
 	private readonly cellW: number;
 	private readonly cellH: number;
+	// Generation-counter deduplication for candidatesInto(): avoids allocating a
+	// new Set on every query. Incremented each call; _visited[idx] === gen means
+	// idx has already been added to the output in the current query.
+	private _visitGen = 0;
+	private _visited: number[] = [];
 
 	constructor(cellW: number, cellH: number) {
 		this.cellW = Math.max(1e-6, cellW);
@@ -92,6 +98,10 @@ export class SpatialGrid {
 	}
 
 	insert(idx: number, bbox: BBox): void {
+		if (idx >= this._visited.length) {
+			const newLen = Math.max(idx + 1, this._visited.length * 2 || 16);
+			for (let i = this._visited.length; i < newLen; i++) this._visited.push(0);
+		}
 		const [x0, x1, y0, y1] = this.range(bbox);
 		for (let x = x0; x <= x1; x++) {
 			for (let y = y0; y <= y1; y++) {
@@ -125,6 +135,35 @@ export class SpatialGrid {
 			}
 		}
 		return [...seen];
+	}
+
+	/**
+	 * Zero-allocation alternative to candidates(): writes neighbour indices into
+	 * `out` and returns the count. Uses a generation counter for O(1) deduplication
+	 * without allocating a Set or Array on every call — safe for tight inner loops.
+	 */
+	candidatesInto(cx: number, cy: number, hw: number, hh: number, out: number[]): number {
+		const gen = ++this._visitGen;
+		const visited = this._visited;
+		const x0 = Math.floor((cx - hw) / this.cellW);
+		const x1 = Math.floor((cx + hw) / this.cellW);
+		const y0 = Math.floor((cy - hh) / this.cellH);
+		const y1 = Math.floor((cy + hh) / this.cellH);
+		let count = 0;
+		for (let gx = x0; gx <= x1; gx++) {
+			for (let gy = y0; gy <= y1; gy++) {
+				const list = this.cells.get(this.key(gx, gy));
+				if (!list) continue;
+				for (const idx of list) {
+					if (visited[idx] !== gen) {
+						visited[idx] = gen;
+						out[count++] = idx;
+					}
+				}
+			}
+		}
+		out.length = count;
+		return count;
 	}
 }
 
@@ -186,14 +225,19 @@ async function placeSpiral(
 		cornerDist / Math.sqrt(maxSteps),
 	);
 
+	const _spiralBuf: number[] = [];
 	const isValid = (x: number, y: number) => {
 		if (Math.abs(x) > xMax || Math.abs(y) > yMax) return false;
-		const q = { cx: x, cy: y, hw, hh };
-		const idxs = grid ? grid.candidates(q) : occupied.map((_, i) => i);
-		return idxs.every(
-			(i) =>
-				Math.abs(x - occupied[i].cx) >= hw + occupied[i].hw ||
-				Math.abs(y - occupied[i].cy) >= hh + occupied[i].hh,
+		if (grid) {
+			const n = grid.candidatesInto(x, y, hw, hh, _spiralBuf);
+			for (let k = 0; k < n; k++) {
+				const p = occupied[_spiralBuf[k]];
+				if (Math.abs(x - p.cx) < hw + p.hw && Math.abs(y - p.cy) < hh + p.hh) return false;
+			}
+			return true;
+		}
+		return occupied.every(
+			(p) => Math.abs(x - p.cx) >= hw + p.hw || Math.abs(y - p.cy) >= hh + p.hh,
 		);
 	};
 
@@ -226,14 +270,19 @@ export async function placeAdjacent(
 	const yMax = ryBound - hh;
 	if (xMax <= 0 || yMax <= 0) return null;
 
+	const _adjBuf: number[] = [];
 	const isValid = (x: number, y: number) => {
 		if (Math.abs(x) > xMax || Math.abs(y) > yMax) return false;
-		const q = { cx: x, cy: y, hw, hh };
-		const idxs = grid ? grid.candidates(q) : occupied.map((_, i) => i);
-		return idxs.every(
-			(i) =>
-				Math.abs(x - occupied[i].cx) >= hw + occupied[i].hw ||
-				Math.abs(y - occupied[i].cy) >= hh + occupied[i].hh,
+		if (grid) {
+			const n = grid.candidatesInto(x, y, hw, hh, _adjBuf);
+			for (let k = 0; k < n; k++) {
+				const p = occupied[_adjBuf[k]];
+				if (Math.abs(x - p.cx) < hw + p.hw && Math.abs(y - p.cy) < hh + p.hh) return false;
+			}
+			return true;
+		}
+		return occupied.every(
+			(p) => Math.abs(x - p.cx) >= hw + p.hw || Math.abs(y - p.cy) >= hh + p.hh,
 		);
 	};
 
@@ -313,7 +362,7 @@ export async function placeAdjacent(
 		}
 	}
 
-	await maybeYield();
+	{ const _p = maybeYield(); if (_p) await _p; }
 
 	const hit2 = tryList(crossCands, isValid);
 	if (hit2) return hit2;
@@ -346,11 +395,13 @@ export async function compactLayer(
 	const grid = new SpatialGrid((totalHW / n) * 2, (totalHH / n) * 2);
 	boxes.forEach((b, i) => grid.insert(i, b));
 
+	const _compactBuf: number[] = [];
 	const noOverlap = (i: number, tx: number, ty: number): boolean => {
 		const b = boxes[i];
 		if (Math.abs(tx) > rxBound - b.hw || Math.abs(ty) > ryBound - b.hh) return false;
-		const q = { cx: tx, cy: ty, hw: b.hw, hh: b.hh };
-		for (const j of grid.candidates(q)) {
+		const n = grid.candidatesInto(tx, ty, b.hw, b.hh, _compactBuf);
+		for (let k = 0; k < n; k++) {
+			const j = _compactBuf[k];
 			if (j === i) continue;
 			const p = boxes[j];
 			if (Math.abs(tx - p.cx) < b.hw + p.hw && Math.abs(ty - p.cy) < b.hh + p.hh)
