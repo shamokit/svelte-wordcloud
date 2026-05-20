@@ -5,26 +5,16 @@ export const CHAR_W_FALLBACK = 0.6;
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 const MAX_SPIRAL_STEPS = 6000;
 
-// scheduler.yield() (Chrome/Edge 115+) resumes the caller at the earliest idle
-// slot without the ~4 ms minimum delay that setTimeout(0) imposes.
-// Falls back to setTimeout on Firefox / Safari.
-const _schedulerYield: (() => Promise<void>) | null = (() => {
-	if (typeof globalThis === 'undefined') return null;
-	const s = (globalThis as { scheduler?: { yield?: () => Promise<void> } }).scheduler;
-	return typeof s?.yield === 'function' ? () => s.yield!() : null;
-})();
-
 /**
- * Returns a yielder function that suspends the caller to the next idle slot
- * when more than `budgetMs` of wall-clock time has elapsed since the last yield.
+ * Returns a yielder function that suspends the caller to the next macrotask
+ * (via setTimeout) when more than `budgetMs` of wall-clock time has elapsed
+ * since the last yield.
  *
  * The returned function is NOT async: when no yield is needed it returns `void`
  * synchronously so callers can skip the `await` entirely with
  * `const _p = maybeYield(); if (_p) await _p;`.
- * This avoids the microtask allocation that `async` functions always incur.
- *
- * Uses `scheduler.yield()` when available (Chrome/Edge 115+) for near-zero
- * resume latency; falls back to `setTimeout(0)` elsewhere.
+ * This avoids the microtask allocation that `async` functions always incur,
+ * making it safe to call in tight inner loops without measurable overhead.
  */
 export function makeYielder(budgetMs = 16): () => Promise<void> | void {
 	const perf = typeof performance !== 'undefined' ? performance : { now: () => Date.now() };
@@ -33,7 +23,7 @@ export function makeYielder(budgetMs = 16): () => Promise<void> | void {
 		const now = perf.now();
 		if (now - last > budgetMs) {
 			last = now;
-			return _schedulerYield ? _schedulerYield() : new Promise<void>((r) => setTimeout(r, 0));
+			return new Promise<void>((r) => setTimeout(r, 0));
 		}
 		// void — budget not yet exhausted, no yield needed
 	};
