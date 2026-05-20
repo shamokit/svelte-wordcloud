@@ -1,5 +1,13 @@
 # @shamokit/svelte-wordcloud
 
+## 0.2.2
+
+### Patch Changes
+
+- [#28](https://github.com/shamokit/svelte-wordcloud/pull/28) [`83eefa9`](https://github.com/shamokit/svelte-wordcloud/commit/83eefa9d888d1e7240c40e61b3a399e94a176bb2) Thanks [@shamokit](https://github.com/shamokit)! - perf(3d): eliminate O(N²) re-render on layout yields to fix setTimeout violation
+
+  Replace monolithic `wordLayout` state with fine-grained `displayWords` array and `applyWords()` that mutates only changed element properties through Svelte 5's `$state` proxy. Also eliminates per-query heap allocations in `SpatialGrid` hot paths via zero-allocation `candidatesInto()` with generation-counter deduplication.
+
 ## 0.2.1
 
 ### Patch Changes
