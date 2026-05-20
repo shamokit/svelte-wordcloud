@@ -76,7 +76,45 @@
 	const padding = $derived(layoutH > 0 ? (GAP_PX * ry) / layoutH : 0.06);
 
 	// ── Layout (async generator) ──────────────────────────────────────────────
-	let wordLayout = $state<Layout3DResult>({ words: [], numLayers: 1 });
+	// Split into two separate state variables so Scene.svelte can receive a
+	// stable $state array whose elements are mutated in-place. Svelte 5's
+	// fine-grained reactivity then only re-renders the props that actually
+	// changed, instead of re-evaluating every word on every generator yield.
+	let numLayers = $state(1);
+	// Reactive array passed directly to Scene. Elements are plain objects
+	// wrapped by Svelte 5's $state proxy; mutating a property (e.g. d.x = v)
+	// fires only the signals for that property, not the entire word list.
+	let displayWords = $state<ProcessedWord[]>([]);
+	// Plain (non-reactive) index map so applyWords can find each element in
+	// O(1) without iterating displayWords.
+	const _wordIndexMap = new Map<string, number>();
+
+	/**
+	 * Merge `words` from a generator yield into `displayWords` with minimal
+	 * Svelte signal firings:
+	 *  - New words → push (creates new Text component once)
+	 *  - Existing words whose position/size/color changed → mutate the proxied
+	 *    element in-place so only the affected props re-render
+	 *  - Existing words unchanged → proxy setter equality check exits early,
+	 *    zero subscriber notifications
+	 */
+	function applyWords(words: ProcessedWord[]) {
+		for (const w of words) {
+			const idx = _wordIndexMap.get(w.word);
+			if (idx !== undefined) {
+				const d = displayWords[idx];
+				if (d.x !== w.x) d.x = w.x;
+				if (d.y !== w.y) d.y = w.y;
+				if (d.z !== w.z) d.z = w.z;
+				if (d.fontSize !== w.fontSize) d.fontSize = w.fontSize;
+				if (d.color !== w.color) d.color = w.color;
+				if (d.layerIndex !== w.layerIndex) d.layerIndex = w.layerIndex;
+			} else {
+				_wordIndexMap.set(w.word, displayWords.length);
+				displayWords.push({ ...w });
+			}
+		}
+	}
 
 	// Svelte 5 production バグ回避: $effect の sync ボディで書いた $state に
 	// 同じ effect の async IIFE から書いても subscriber に通知が届かない。
@@ -115,7 +153,9 @@
 		const isDataChange = ctx.data !== lastData;
 		if (isDataChange) {
 			lastData = ctx.data;
-			wordLayout = { words: [], numLayers: 1 };
+			displayWords = [];
+			_wordIndexMap.clear();
+			numLayers = 1;
 			_loadingVersion++;
 		}
 		// For data changes: yield progressively so words appear as they are placed.
@@ -128,25 +168,26 @@
 		(async () => {
 			try {
 				let buffer: Layout3DResult | null = null;
-				// Throttle intermediate Svelte flushes to avoid O(N²) re-rendering cost.
-				// Each flush re-evaluates all N currently-placed words; without throttling,
-				// 37 flushes × growing N words = ~1,476ms of pure rendering overhead for
-				// 552 words. One flush per second keeps intermediates visually useful while
-				// staying well under the 50ms long-task threshold.
-				let lastDisplayMs = 0;
+				let lastWordCount = 0;
 				for await (const partial of computeLayout3D(params)) {
 					if (cancelled) return;
-					buffer = partial;
-					if (isDataChange) {
-						const now = performance.now();
-						if (now - lastDisplayMs > 1000) {
-							lastDisplayMs = now;
-							wordLayout = partial;
-						}
+					if (partial.numLayers !== numLayers) numLayers = partial.numLayers;
+					// During placement words are appended; during compaction the count
+					// stabilises while positions shift. Apply placement yields eagerly
+					// (fine-grained: only the new words trigger Text node creation).
+					// Buffer compaction yields and cosmetic re-runs; apply atomically
+					// once so the scene transitions cleanly.
+					const isPlacement = partial.words.length > lastWordCount;
+					lastWordCount = partial.words.length;
+					if (isDataChange && isPlacement) {
+						applyWords(partial.words);
+					} else {
+						buffer = partial;
 					}
 				}
 				if (!cancelled && buffer !== null) {
-					wordLayout = buffer; // apply completed result in one shot
+					numLayers = buffer.numLayers;
+					applyWords(buffer.words);
 				}
 			} finally {
 				if (!cancelled) {
@@ -178,7 +219,7 @@
 	const maxZ = initViewingDist;
 	// Last-layer camera position
 	const minZ = $derived(
-		-(wordLayout.numLayers - 1) * layerSpacing + initViewingDist,
+		-(numLayers - 1) * layerSpacing + initViewingDist,
 	);
 	// Extend scroll range past the last layer only; layer 1 is the minimum (all words fit at that depth)
 	const scrollMaxZ = maxZ;
@@ -198,8 +239,8 @@
 
 	// ── Write scroll state back to context ──────────────────────────────────
 	$effect(() => {
-		ctx.numLayers = wordLayout.numLayers;
-		ctx.currentLayer = computeCurrentLayer(wordLayout.numLayers);
+		ctx.numLayers = numLayers;
+		ctx.currentLayer = computeCurrentLayer(numLayers);
 		ctx.scrollProgress = scrollProgress;
 	});
 
@@ -221,7 +262,7 @@
 
 	function syncScrollCtx() {
 		ctx.scrollProgress = scrollProgress;
-		ctx.currentLayer = computeCurrentLayer(wordLayout.numLayers);
+		ctx.currentLayer = computeCurrentLayer(numLayers);
 	}
 
 	ctx.scrollTo = (progress: number) => {
@@ -597,7 +638,7 @@
 		>
 			<Canvas>
 				<Scene
-					words={wordLayout.words}
+					words={displayWords}
 					{cameraX}
 					{cameraY}
 					cameraZ={camSpring.current}
