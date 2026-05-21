@@ -29,6 +29,100 @@ export function makeYielder(budgetMs = 16): () => Promise<void> | void {
 	};
 }
 
+// ── Seeded PRNG ───────────────────────────────────────────────────────────────
+
+function mulberry32(seed: number): () => number {
+	return () => {
+		seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+		let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+		t = t + Math.imul(t ^ (t >>> 7), 61 | t) ^ t;
+		return ((t ^ t >>> 14) >>> 0) / 4294967296;
+	};
+}
+
+/** djb2-derived hash of a string → unsigned 32-bit integer. */
+export function hashStr(s: string): number {
+	let h = 5381;
+	for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0;
+	return h >>> 0;
+}
+
+// ── Layout cache key builders ─────────────────────────────────────────────────
+// computedWordColor is intentionally excluded: color does not affect positions.
+
+export function buildCacheKey3D(params: Layout3DParams): string {
+	const dataPart = [...params.data]
+		.sort((a, b) => (a.word < b.word ? -1 : 1))
+		.map((d) => `${d.word}:${d.counts}`)
+		.join(',');
+	const numPart = [
+		params.rx, params.ry, params.padding,
+		params.fontSizeContrast, params.topWordArea,
+		params.randomness, params.layerSpacing, params.charH,
+	].join('|');
+	const wPart = Object.entries(params.wordWidths)
+		.sort(([a], [b]) => (a < b ? -1 : 1))
+		.map(([k, v]) => `${k}:${v.toFixed(4)}`)
+		.join(',');
+	const hPart = Object.entries(params.wordHalfH)
+		.sort(([a], [b]) => (a < b ? -1 : 1))
+		.map(([k, v]) => `${k}:${v.toFixed(4)}`)
+		.join(',');
+	return `${dataPart}||${numPart}||${wPart}||${hPart}`;
+}
+
+export function buildCacheKeyFlat(params: LayoutFlatParams): string {
+	const dataPart = [...params.data]
+		.sort((a, b) => (a.word < b.word ? -1 : 1))
+		.map((d) => `${d.word}:${d.counts}`)
+		.join(',');
+	const numPart = [
+		params.rx, params.ry, params.padding, params.paddingFrac,
+		params.fontSizeContrast, params.topWordArea,
+		params.randomness, params.charH,
+	].join('|');
+	const wPart = Object.entries(params.wordWidths)
+		.sort(([a], [b]) => (a < b ? -1 : 1))
+		.map(([k, v]) => `${k}:${v.toFixed(4)}`)
+		.join(',');
+	const hPart = Object.entries(params.wordHalfH)
+		.sort(([a], [b]) => (a < b ? -1 : 1))
+		.map(([k, v]) => `${k}:${v.toFixed(4)}`)
+		.join(',');
+	return `${dataPart}||${numPart}||${wPart}||${hPart}`;
+}
+
+// ── Module-level layout caches ────────────────────────────────────────────────
+
+const CACHE_MAX = 20;
+const _cache3D = new Map<string, { words: ProcessedWord[]; numLayers: number }>();
+const _cacheFlat = new Map<string, ProcessedWord[]>();
+
+function _evict(cache: Map<string, unknown>): void {
+	if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value!);
+}
+
+/** Remove a single entry from both caches (used by component clearCache()). */
+export function removeLayoutCacheEntry(key: string): void {
+	_cache3D.delete(key);
+	_cacheFlat.delete(key);
+}
+
+export function getCache3DEntry(key: string): { words: ProcessedWord[]; numLayers: number } | undefined {
+	return _cache3D.get(key);
+}
+export function setCache3DEntry(key: string, value: { words: ProcessedWord[]; numLayers: number }): void {
+	_evict(_cache3D);
+	_cache3D.set(key, value);
+}
+export function getCacheFlatEntry(key: string): ProcessedWord[] | undefined {
+	return _cacheFlat.get(key);
+}
+export function setCacheFlatEntry(key: string, value: ProcessedWord[]): void {
+	_evict(_cacheFlat);
+	_cacheFlat.set(key, value);
+}
+
 export type BBox = { cx: number; cy: number; hw: number; hh: number };
 export type BBoxFn = (word: string, fontSize: number) => { hw: number; hh: number };
 
@@ -264,6 +358,7 @@ export async function placeAdjacent(
 	randomness: number,
 	maybeYield: () => Promise<void> | void,
 	maxSpiralSteps = MAX_SPIRAL_STEPS,
+	rng: () => number = Math.random,
 ): Promise<{ x: number; y: number } | null> {
 	const { hw, hh } = bboxFn(word, fontSize);
 	const xMax = rxBound - hw;
@@ -298,7 +393,7 @@ export async function placeAdjacent(
 		occupied.length <= FRONTIER_K ? occupied : occupied.slice(-FRONTIER_K);
 
 	const JITTER = randomness;
-	const jit = (max: number) => (Math.random() - 0.5) * 2 * max;
+	const jit = (max: number) => (rng() - 0.5) * 2 * max;
 	const jitCands: Array<{ x: number; y: number; d2: number }> = [];
 	const exactCands: Array<{ x: number; y: number; d2: number }> = [];
 
@@ -519,6 +614,14 @@ export async function* computeLayout3D(
 		computedWordColor,
 	} = params;
 
+	const _key3D = buildCacheKey3D(params);
+	const _hit3D = _cache3D.get(_key3D);
+	if (_hit3D) {
+		yield _hit3D;
+		return;
+	}
+	const _rng3D = mulberry32(hashStr(_key3D));
+
 	const maybeYield = makeYielder(8);
 	const bboxFn = makeBboxFn(wordWidths, wordHalfH, charH, padding);
 
@@ -625,6 +728,7 @@ export async function* computeLayout3D(
 				randomness,
 				maybeYield,
 				SPIRAL_STEPS_3D,
+				_rng3D,
 			);
 
 			if (pos) {
@@ -671,6 +775,9 @@ export async function* computeLayout3D(
 	}
 
 	yield { words: bestWords, numLayers };
+
+	_evict(_cache3D);
+	_cache3D.set(_key3D, { words: bestWords, numLayers });
 }
 
 // ── Flat layout ───────────────────────────────────────────────────────────────
@@ -708,6 +815,14 @@ export async function* computeLayoutFlat(
 		randomness,
 		computedWordColor,
 	} = params;
+
+	const _keyFlat = buildCacheKeyFlat(params);
+	const _hitFlat = _cacheFlat.get(_keyFlat);
+	if (_hitFlat) {
+		yield _hitFlat;
+		return;
+	}
+	const _rngFlat = mulberry32(hashStr(_keyFlat));
 
 	const maybeYield = makeYielder(8);
 	const bboxFn = makeBboxFn(wordWidths, wordHalfH, charH, padding, paddingFrac);
@@ -779,6 +894,8 @@ export async function* computeLayoutFlat(
 			bboxFn,
 			randomness,
 			maybeYield,
+			MAX_SPIRAL_STEPS,
+			_rngFlat,
 		);
 		if (pos === null) continue;
 		const bbox = { cx: pos.x, cy: pos.y, hw, hh };
@@ -790,4 +907,7 @@ export async function* computeLayoutFlat(
 
 	await compactLayer(result, 20, placementRx, placementRy, bboxFn, maybeYield);
 	yield result.slice();
+
+	_evict(_cacheFlat);
+	_cacheFlat.set(_keyFlat, result.slice());
 }

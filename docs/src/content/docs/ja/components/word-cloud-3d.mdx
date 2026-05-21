@@ -5,6 +5,7 @@ description: 3D マルチレイヤーワードクラウドコンポーネント�
 
 import WordCloud3DDemo from '../../../../components/WordCloud3DDemo.svelte';
 import WordCloudHeavyDemo from '../../../../components/WordCloudHeavyDemo.svelte';
+import WordCloud3DCacheDemo from '../../../../components/WordCloud3DCacheDemo.svelte';
 
 `WordCloud3D` は WebGL（Three.js / Threlte 経由）を使って複数の深度レイヤーにワードをレンダリングします。`Ctrl + Wheel`、ピンチジェスチャー、またはビルトインの深度スクロールバーでレイヤー間を移動できます。スクロール範囲は最後のレイヤーを少し超えて延長されており、そのレイヤーの小さいワードも拡大して確認できます。
 
@@ -16,6 +17,12 @@ import WordCloudHeavyDemo from '../../../../components/WordCloudHeavyDemo.svelte
 
 <WordCloudHeavyDemo client:only="svelte" />
 
+## キャッシュデモ（`useCache`）
+
+レイアウトアルゴリズムはデータと設定が同一であれば1回だけ実行されます。`useCache` を指定すると結果を `localStorage` に保存でき、次回以降のページ読み込み時にレイアウト計算をスキップして即座に描画されます。
+
+<WordCloud3DCacheDemo client:only="svelte" />
+
 ## Props
 
 | Prop | 型 | デフォルト | 説明 |
@@ -25,6 +32,7 @@ import WordCloudHeavyDemo from '../../../../components/WordCloudHeavyDemo.svelte
 | `layout` | `WordCloud3DLayout` | `{}` | 配置・サイズに関するオプション（下記参照）。 |
 | `a11y` | `WordCloud3DA11y` | `{}` | アクセシビリティラベルと ARIA テキスト（下記参照）。 |
 | `onWordClick` | `(word: WordItem) => void` | — | ワードがクリックされたときに呼び出されます。 |
+| `useCache` | `string \| symbol \| true` | — | 計算済みレイアウトを `localStorage` に保存します。`true` を指定するとデータとレイアウトパラメータのハッシュからキーを自動生成します。`string` または `symbol` で明示的なキーを指定することも可能です（同一ページに複数のワードクラウドがある場合に便利）。データやパラメータが変更されると自動的に無効化されます。インスタンスの `clearCache()` で手動削除も可能です。 |
 
 ### `layout`
 
@@ -82,7 +90,23 @@ import WordCloudHeavyDemo from '../../../../components/WordCloudHeavyDemo.svelte
     {/snippet}
   </WordCloudLabel>
 
-  <WordCloud3D fontUrl={FONT_URL} onWordClick={handleWordClick} />
+  <WordCloud3D fontUrl={FONT_URL} onWordClick={handleWordClick} useCache={true} />
 </WordCloud>
+```
+
+### `clearCache()` の使用例
+
+```svelte
+<script lang="ts">
+  import { WordCloud, WordCloud3D } from '@shamokit/svelte-wordcloud';
+
+  let cloudRef = $state<{ clearCache(): void } | null>(null);
+</script>
+
+<WordCloud data={words}>
+  <WordCloud3D fontUrl={FONT_URL} useCache="my-3d-cloud" bind:this={cloudRef} />
+</WordCloud>
+
+<button onclick={() => cloudRef?.clearCache()}>キャッシュを削除</button>
 ```
 

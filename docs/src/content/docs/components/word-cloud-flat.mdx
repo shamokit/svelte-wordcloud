@@ -5,6 +5,7 @@ description: Single-layer word cloud with zoom and pan.
 
 import WordCloudFlatDemo from '../../../components/WordCloudFlatDemo.svelte';
 import WordCloudFlatHeavyDemo from '../../../components/WordCloudFlatHeavyDemo.svelte';
+import WordCloudFlatCacheDemo from '../../../components/WordCloudFlatCacheDemo.svelte';
 
 `WordCloudFlat` renders all words on a single layer with smooth zoom (`Ctrl + Wheel` or pinch) and pan. Ideal when depth navigation is not needed.
 
@@ -16,6 +17,12 @@ Must be a descendant of `WordCloud`.
 
 <WordCloudFlatHeavyDemo client:only="svelte" />
 
+## Cache demo (`useCache`)
+
+The layout algorithm runs once per unique dataset and configuration. Pass `useCache` to persist the result to `localStorage` — subsequent page loads render instantly without re-running the algorithm.
+
+<WordCloudFlatCacheDemo client:only="svelte" />
+
 ## Props
 
 | Prop | Type | Default | Description |
@@ -25,6 +32,7 @@ Must be a descendant of `WordCloud`.
 | `layout` | `WordCloudFlatLayout` | `{}` | Layout and sizing options (see below). |
 | `a11y` | `WordCloudFlatA11y` | `{}` | Accessibility labels and ARIA text (see below). |
 | `onWordClick` | `(word: WordItem) => void` | — | Called when a word is clicked. |
+| `useCache` | `string \| symbol \| true` | — | Persist the computed layout to `localStorage`. `true` derives a key from a hash of the data and layout params (recommended for single-cloud pages). Pass a `string` or `symbol` to set an explicit key — useful when multiple clouds share the same page. The stored entry is automatically invalidated when data or layout params change. Call `clearCache()` on the component instance to clear it manually. |
 
 ### `layout`
 
@@ -79,7 +87,23 @@ Must be a descendant of `WordCloud`.
     {/snippet}
   </WordCloudLabel>
 
-  <WordCloudFlat fontUrl={FONT_URL} onWordClick={handleWordClick} />
+  <WordCloudFlat fontUrl={FONT_URL} onWordClick={handleWordClick} useCache={true} />
 </WordCloud>
+```
+
+### `clearCache()` example
+
+```svelte
+<script lang="ts">
+  import { WordCloud, WordCloudFlat } from '@shamokit/svelte-wordcloud';
+
+  let cloudRef = $state<{ clearCache(): void } | null>(null);
+</script>
+
+<WordCloud data={words}>
+  <WordCloudFlat fontUrl={FONT_URL} useCache="my-cloud" bind:this={cloudRef} />
+</WordCloud>
+
+<button onclick={() => cloudRef?.clearCache()}>Clear cache</button>
 ```
 

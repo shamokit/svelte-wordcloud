@@ -9,7 +9,16 @@
 	import type { WordCloudFlatProps, ProcessedWord, WordItem } from './types.js';
 	import { getWCContext } from './WordCloud.svelte';
 	import { createFontMetrics } from './fontMetrics.svelte.js';
-	import { computeLayoutFlat, type LayoutFlatParams, CHAR_W_FALLBACK } from './layoutEngine.js';
+	import {
+		computeLayoutFlat,
+		buildCacheKeyFlat,
+		hashStr,
+		removeLayoutCacheEntry,
+		getCacheFlatEntry,
+		setCacheFlatEntry,
+		type LayoutFlatParams,
+		CHAR_W_FALLBACK,
+	} from './layoutEngine.js';
 
 	const {
 		fontUrl,
@@ -17,6 +26,7 @@
 		layout = {},
 		a11y = {},
 		onWordClick,
+		useCache,
 	}: WordCloudFlatProps = $props();
 
 	const fontSizeContrast = $derived(layout.fontSizeContrast ?? 2.0);
@@ -90,6 +100,43 @@
 	let _finishedVersion = $state(0); // ランが完了するたびに async で _loadingVersion の値をセット
 	const isLoading = $derived(_loadingVersion > _finishedVersion);
 
+	// ── localStorage cache helpers ────────────────────────────────────────────
+	let _currentCacheKeyFlat = '';
+	let _currentStorageKeyFlat = '';
+
+	const _LS_PREFIX_FLAT = 'svelte-wc-flat-';
+
+	function _lsKeyFlat(id: string | symbol | true, cacheKey: string): string {
+		if (id === true) return _LS_PREFIX_FLAT + hashStr(cacheKey).toString(16);
+		if (typeof id === 'symbol') return _LS_PREFIX_FLAT + (id.description ?? id.toString());
+		return _LS_PREFIX_FLAT + id;
+	}
+
+	function _lsRestoreFlat(storageKey: string, cacheKey: string): void {
+		if (typeof localStorage === 'undefined') return;
+		try {
+			const raw = localStorage.getItem(storageKey);
+			if (!raw) return;
+			const { validator, data } = JSON.parse(raw) as { validator: string; data: ProcessedWord[] };
+			if (validator !== cacheKey) { localStorage.removeItem(storageKey); return; }
+			setCacheFlatEntry(cacheKey, data);
+		} catch { /* parse error or SecurityError → ignore */ }
+	}
+
+	function _lsSaveFlat(storageKey: string, cacheKey: string): void {
+		if (typeof localStorage === 'undefined') return;
+		try {
+			const existing = localStorage.getItem(storageKey);
+			if (existing) {
+				const { validator } = JSON.parse(existing) as { validator: string };
+				if (validator === cacheKey) return;
+			}
+			const entry = getCacheFlatEntry(cacheKey);
+			if (!entry) return;
+			localStorage.setItem(storageKey, JSON.stringify({ validator: cacheKey, data: entry }));
+		} catch { /* localStorage full or SecurityError → ignore */ }
+	}
+
 	// Track the data reference so we can distinguish a word-data change (which
 	// should clear the canvas and show the spinner) from a cosmetic re-run such
 	// as a container resize or font-metrics update (which should keep the
@@ -115,8 +162,20 @@
 			fontSizeContrast,
 			topWordArea,
 			randomness,
-			computedWordColor,
+			// Read color without subscribing: color changes should not retrigger layout.
+			computedWordColor: untrack(() => computedWordColor),
 		};
+
+		// Compute cache key once (used for both in-memory cache and localStorage).
+		const _cacheKey = buildCacheKeyFlat(params);
+		_currentCacheKeyFlat = _cacheKey;
+
+		// Restore from localStorage into in-memory cache (if useCache and not yet cached).
+		if (useCache) {
+			const sk = _lsKeyFlat(useCache, _cacheKey);
+			_currentStorageKeyFlat = sk;
+			if (!getCacheFlatEntry(_cacheKey)) _lsRestoreFlat(sk, _cacheKey);
+		}
 
 		// Only clear the canvas and show the spinner when the word data itself
 		// changes. For cosmetic re-runs (resize, font-metrics arrival, color
@@ -149,6 +208,9 @@
 				if (!cancelled && buffer !== null) {
 					wordLayout = buffer; // apply completed result in one shot
 				}
+				if (!cancelled && useCache) {
+					_lsSaveFlat(_currentStorageKeyFlat, _cacheKey);
+				}
 			} finally {
 				if (!cancelled) {
 					await tick();
@@ -163,6 +225,32 @@
 			cancelled = true;
 		};
 	});
+
+	// ── Color-only update (runs when CSS color or wordLayout changes) ───────
+	// Subscribes to both computedWordColor and wordLayout so that words added
+	// progressively during layout also receive the correct colour immediately.
+	$effect(() => {
+		const color = computedWordColor;
+		const words = wordLayout;
+		untrack(() => {
+			const explicitColors = new Map(
+				ctx.data.filter((d) => d.color != null).map((d) => [d.word, d.color!]),
+			);
+			for (const w of words) {
+				if (!explicitColors.has(w.word)) w.color = color;
+			}
+		});
+	});
+
+	/** Clears the cached layout for the current data from both the in-memory
+	 *  cache and localStorage (if `useCache` is set). Call this to force a
+	 *  re-computation on the next render. */
+	export function clearCache(): void {
+		removeLayoutCacheEntry(_currentCacheKeyFlat);
+		if (_currentStorageKeyFlat && typeof localStorage !== 'undefined') {
+			try { localStorage.removeItem(_currentStorageKeyFlat); } catch { /* SecurityError → ignore */ }
+		}
+	}
 
 	// Dynamic minZoom: zoom level where the outermost word is exactly at the viewport edge.
 	// Recomputed whenever the layout changes; defaults to 1.0 until layout resolves.

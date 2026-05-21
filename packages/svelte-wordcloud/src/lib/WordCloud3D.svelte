@@ -9,7 +9,16 @@
 	import type { WordCloud3DProps, ProcessedWord, WordItem } from './types.js';
 	import { getWCContext } from './WordCloud.svelte';
 	import { createFontMetrics } from './fontMetrics.svelte.js';
-	import { computeLayout3D, type Layout3DParams, type Layout3DResult } from './layoutEngine.js';
+	import {
+		computeLayout3D,
+		buildCacheKey3D,
+		hashStr,
+		removeLayoutCacheEntry,
+		getCache3DEntry,
+		setCache3DEntry,
+		type Layout3DParams,
+		type Layout3DResult,
+	} from './layoutEngine.js';
 
 	const {
 		fontUrl,
@@ -17,6 +26,7 @@
 		layout = {},
 		a11y = {},
 		onWordClick,
+		useCache,
 	}: WordCloud3DProps = $props();
 
 	const layerSpacing    = $derived(layout.layerSpacing    ?? 12);
@@ -122,6 +132,46 @@
 	let _finishedVersion = $state(0); // ランが完了するたびに async で _loadingVersion の値をセット
 	const isLoading = $derived(_loadingVersion > _finishedVersion);
 
+	// ── localStorage cache helpers ────────────────────────────────────────────
+	// Tracks the cache key and storage key for the current layout run so that
+	// clearCache() can remove the right entries without re-computing the key.
+	let _currentCacheKey3D = '';
+	let _currentStorageKey3D = '';
+
+	const _LS_PREFIX_3D = 'svelte-wc-3d-';
+
+	function _lsKey3D(id: string | symbol | true, cacheKey: string): string {
+		if (id === true) return _LS_PREFIX_3D + hashStr(cacheKey).toString(16);
+		if (typeof id === 'symbol') return _LS_PREFIX_3D + (id.description ?? id.toString());
+		return _LS_PREFIX_3D + id;
+	}
+
+	function _lsRestore3D(storageKey: string, cacheKey: string): void {
+		if (typeof localStorage === 'undefined') return;
+		try {
+			const raw = localStorage.getItem(storageKey);
+			if (!raw) return;
+			const { validator, data } = JSON.parse(raw) as { validator: string; data: { words: ProcessedWord[]; numLayers: number } };
+			if (validator !== cacheKey) { localStorage.removeItem(storageKey); return; }
+			setCache3DEntry(cacheKey, data);
+		} catch { /* parse error or SecurityError → ignore */ }
+	}
+
+	function _lsSave3D(storageKey: string, cacheKey: string): void {
+		if (typeof localStorage === 'undefined') return;
+		try {
+			// Skip write if a valid entry already exists for this key.
+			const existing = localStorage.getItem(storageKey);
+			if (existing) {
+				const { validator } = JSON.parse(existing) as { validator: string };
+				if (validator === cacheKey) return;
+			}
+			const entry = getCache3DEntry(cacheKey);
+			if (!entry) return;
+			localStorage.setItem(storageKey, JSON.stringify({ validator: cacheKey, data: entry }));
+		} catch { /* localStorage full or SecurityError → ignore */ }
+	}
+
 	// Track the data reference to know when to clear the display vs. quiet-recompute.
 	// Plain variable (not $state) so reading/writing it doesn't re-trigger the effect.
 	let lastData: typeof ctx.data | null = null;
@@ -143,8 +193,20 @@
 			topWordArea,
 			randomness,
 			layerSpacing,
-			computedWordColor,
+			// Read color without subscribing: color changes should not retrigger layout.
+			computedWordColor: untrack(() => computedWordColor),
 		};
+
+		// Compute cache key once (used for both in-memory cache and localStorage).
+		const _cacheKey = buildCacheKey3D(params);
+		_currentCacheKey3D = _cacheKey;
+
+		// Restore from localStorage into in-memory cache (if useCache and not yet cached).
+		if (useCache) {
+			const sk = _lsKey3D(useCache, _cacheKey);
+			_currentStorageKey3D = sk;
+			if (!getCache3DEntry(_cacheKey)) _lsRestore3D(sk, _cacheKey);
+		}
 
 		// Only clear the display and show the spinner when word data itself changes.
 		// For cosmetic re-runs (container resize, font metrics, color), keep
@@ -189,6 +251,9 @@
 					numLayers = buffer.numLayers;
 					applyWords(buffer.words);
 				}
+				if (!cancelled && useCache) {
+					_lsSave3D(_currentStorageKey3D, _cacheKey);
+				}
 			} finally {
 				if (!cancelled) {
 					await tick();
@@ -202,6 +267,21 @@
 		return () => {
 			cancelled = true;
 		};
+	});
+
+	// ── Color-only update (runs when CSS color or displayWords changes) ─────
+	$effect(() => {
+		const color = computedWordColor;
+		const len = displayWords.length; // subscribe so progressive words get colored
+		untrack(() => {
+			const explicitColors = new Map(
+				ctx.data.filter((d) => d.color != null).map((d) => [d.word, d.color!]),
+			);
+			for (let i = 0; i < len; i++) {
+				const w = displayWords[i];
+				if (!explicitColors.has(w.word)) w.color = color;
+			}
+		});
 	});
 
 	// ── Camera spring ─────────────────────────────────────────────────────────
@@ -620,6 +700,16 @@
 		obs.observe(canvasWrapEl!, { childList: true, subtree: true });
 		return () => obs.disconnect();
 	});
+
+	/** Clears the cached layout for the current data from both the in-memory
+	 *  cache and localStorage (if `useCache` is set). Call this to force a
+	 *  re-computation on the next render. */
+	export function clearCache(): void {
+		removeLayoutCacheEntry(_currentCacheKey3D);
+		if (_currentStorageKey3D && typeof localStorage !== 'undefined') {
+			try { localStorage.removeItem(_currentStorageKey3D); } catch { /* SecurityError → ignore */ }
+		}
+	}
 </script>
 
 {#if ctx.data.length > 0}

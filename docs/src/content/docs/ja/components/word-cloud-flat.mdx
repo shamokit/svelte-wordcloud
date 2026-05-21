@@ -5,6 +5,7 @@ description: ズームとパンを備えた単一レイヤーのワードクラ�
 
 import WordCloudFlatDemo from '../../../../components/WordCloudFlatDemo.svelte';
 import WordCloudFlatHeavyDemo from '../../../../components/WordCloudFlatHeavyDemo.svelte';
+import WordCloudFlatCacheDemo from '../../../../components/WordCloudFlatCacheDemo.svelte';
 
 `WordCloudFlat` はすべてのワードを単一レイヤーにレンダリングし、スムーズなズーム（`Ctrl + Wheel` またはピンチ）とパンを提供します。深度ナビゲーションが不要な場合に最適です。
 
@@ -16,6 +17,12 @@ import WordCloudFlatHeavyDemo from '../../../../components/WordCloudFlatHeavyDem
 
 <WordCloudFlatHeavyDemo client:only="svelte" />
 
+## キャッシュデモ（`useCache`）
+
+レイアウトアルゴリズムはデータと設定が同一であれば1回だけ実行されます。`useCache` を指定すると結果を `localStorage` に保存でき、次回以降のページ読み込み時にレイアウト計算をスキップして即座に描画されます。
+
+<WordCloudFlatCacheDemo client:only="svelte" />
+
 ## Props
 
 | Prop | 型 | デフォルト | 説明 |
@@ -25,6 +32,7 @@ import WordCloudFlatHeavyDemo from '../../../../components/WordCloudFlatHeavyDem
 | `layout` | `WordCloudFlatLayout` | `{}` | 配置・サイズに関するオプション（下記参照）。 |
 | `a11y` | `WordCloudFlatA11y` | `{}` | アクセシビリティラベルと ARIA テキスト（下記参照）。 |
 | `onWordClick` | `(word: WordItem) => void` | — | ワードがクリックされたときに呼び出されます。 |
+| `useCache` | `string \| symbol \| true` | — | 計算済みレイアウトを `localStorage` に保存します。`true` を指定するとデータとレイアウトパラメータのハッシュからキーを自動生成します（1ページに1つのワードクラウドがある場合に推奨）。`string` または `symbol` を渡すと明示的なキーを使用します（同一ページに複数のワードクラウドがある場合に便利）。データやレイアウトパラメータが変更されると自動的に無効化されます。コンポーネントインスタンスの `clearCache()` を呼び出すと手動で削除できます。 |
 
 ### `layout`
 
@@ -79,7 +87,23 @@ import WordCloudFlatHeavyDemo from '../../../../components/WordCloudFlatHeavyDem
     {/snippet}
   </WordCloudLabel>
 
-  <WordCloudFlat fontUrl={FONT_URL} onWordClick={handleWordClick} />
+  <WordCloudFlat fontUrl={FONT_URL} onWordClick={handleWordClick} useCache={true} />
 </WordCloud>
+```
+
+### `clearCache()` の使用例
+
+```svelte
+<script lang="ts">
+  import { WordCloud, WordCloudFlat } from '@shamokit/svelte-wordcloud';
+
+  let cloudRef = $state<{ clearCache(): void } | null>(null);
+</script>
+
+<WordCloud data={words}>
+  <WordCloudFlat fontUrl={FONT_URL} useCache="my-cloud" bind:this={cloudRef} />
+</WordCloud>
+
+<button onclick={() => cloudRef?.clearCache()}>キャッシュを削除</button>
 ```
 
