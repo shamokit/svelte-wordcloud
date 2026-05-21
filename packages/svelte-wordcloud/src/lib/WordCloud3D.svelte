@@ -269,14 +269,16 @@
 		};
 	});
 
-	// ── Color-only update (runs when CSS color changes, no layout re-run) ────
+	// ── Color-only update (runs when CSS color or displayWords changes) ─────
 	$effect(() => {
 		const color = computedWordColor;
+		const len = displayWords.length; // subscribe so progressive words get colored
 		untrack(() => {
 			const explicitColors = new Map(
 				ctx.data.filter((d) => d.color != null).map((d) => [d.word, d.color!]),
 			);
-			for (const w of displayWords) {
+			for (let i = 0; i < len; i++) {
+				const w = displayWords[i];
 				if (!explicitColors.has(w.word)) w.color = color;
 			}
 		});

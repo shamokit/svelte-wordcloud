@@ -226,14 +226,17 @@
 		};
 	});
 
-	// ── Color-only update (runs when CSS color changes, no layout re-run) ────
+	// ── Color-only update (runs when CSS color or wordLayout changes) ───────
+	// Subscribes to both computedWordColor and wordLayout so that words added
+	// progressively during layout also receive the correct colour immediately.
 	$effect(() => {
 		const color = computedWordColor;
+		const words = wordLayout;
 		untrack(() => {
 			const explicitColors = new Map(
 				ctx.data.filter((d) => d.color != null).map((d) => [d.word, d.color!]),
 			);
-			for (const w of wordLayout) {
+			for (const w of words) {
 				if (!explicitColors.has(w.word)) w.color = color;
 			}
 		});
