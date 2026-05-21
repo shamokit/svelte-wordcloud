@@ -25,6 +25,7 @@ import WordCloudHeavyDemo from '../../../../components/WordCloudHeavyDemo.svelte
 | `layout` | `WordCloud3DLayout` | `{}` | 配置・サイズに関するオプション（下記参照）。 |
 | `a11y` | `WordCloud3DA11y` | `{}` | アクセシビリティラベルと ARIA テキスト（下記参照）。 |
 | `onWordClick` | `(word: WordItem) => void` | — | ワードがクリックされたときに呼び出されます。 |
+| `useCache` | `string \| symbol \| true` | — | 計算済みレイアウトを `localStorage` に保存します。`true` を指定するとデータとレイアウトパラメータのハッシュからキーを自動生成します。`string` または `symbol` で明示的なキーを指定することも可能です（同一ページに複数のワードクラウドがある場合に便利）。データやパラメータが変更されると自動的に無効化されます。インスタンスの `clearCache()` で手動削除も可能です。 |
 
 ### `layout`
 

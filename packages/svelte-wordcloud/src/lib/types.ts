@@ -101,6 +101,24 @@ export type WordCloudFlatProps = {
 	 */
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	onWordClick?: (word: WordItem<any>) => void;
+	/**
+	 * Persist the computed layout to `localStorage` so subsequent page loads
+	 * render instantly without re-running the layout algorithm.
+	 *
+	 * - `true` — derive the storage key automatically from a hash of the data
+	 *   and layout parameters. Recommended when there is only one WordCloudFlat
+	 *   on the page.
+	 * - `string` — use this value as the storage key. Use distinct strings when
+	 *   multiple word clouds share the same page.
+	 * - `symbol` — same as string but uses `symbol.description` as the key,
+	 *   useful for module-scoped unique identifiers.
+	 *
+	 * The stored entry is automatically invalidated when the data or layout
+	 * parameters change.
+	 *
+	 * Call `clearCache()` on the component instance to clear the entry manually.
+	 */
+	useCache?: string | symbol | true;
 };
 
 // ── WordCloud3D ───────────────────────────────────────────────────────────────
@@ -188,4 +206,22 @@ export type WordCloud3DProps = {
 	 */
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	onWordClick?: (word: WordItem<any>) => void;
+	/**
+	 * Persist the computed layout to `localStorage` so subsequent page loads
+	 * render instantly without re-running the layout algorithm.
+	 *
+	 * - `true` — derive the storage key automatically from a hash of the data
+	 *   and layout parameters. Recommended when there is only one WordCloud3D
+	 *   on the page.
+	 * - `string` — use this value as the storage key. Use distinct strings when
+	 *   multiple word clouds share the same page.
+	 * - `symbol` — same as string but uses `symbol.description` as the key,
+	 *   useful for module-scoped unique identifiers.
+	 *
+	 * The stored entry is automatically invalidated when the data or layout
+	 * parameters change.
+	 *
+	 * Call `clearCache()` on the component instance to clear the entry manually.
+	 */
+	useCache?: string | symbol | true;
 };

@@ -25,6 +25,7 @@ Must be a descendant of `WordCloud`.
 | `layout` | `WordCloud3DLayout` | `{}` | Layout and sizing options (see below). |
 | `a11y` | `WordCloud3DA11y` | `{}` | Accessibility labels and ARIA text (see below). |
 | `onWordClick` | `(word: WordItem) => void` | — | Called when a word is clicked. |
+| `useCache` | `string \| symbol \| true` | — | Persist the computed layout to `localStorage`. `true` derives a key from a hash of the data and layout params. Pass a `string` or `symbol` for an explicit key (useful when multiple clouds share a page). Automatically invalidated when data or layout params change. Call `clearCache()` on the instance to clear manually. |
 
 ### `layout`
 
