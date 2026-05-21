@@ -1,5 +1,12 @@
 # playground
 
+## 0.0.9
+
+### Patch Changes
+
+- Updated dependencies [[`2f7ed2b`](https://github.com/shamokit/svelte-wordcloud/commit/2f7ed2be1b50a7a1f815d2d8a81a321bb24ee44f)]:
+  - @shamokit/svelte-wordcloud@0.3.0
+
 ## 0.0.8
 
 ### Patch Changes
