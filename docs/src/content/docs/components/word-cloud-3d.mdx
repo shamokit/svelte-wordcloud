@@ -5,6 +5,7 @@ description: 3D multi-layer word cloud component.
 
 import WordCloud3DDemo from '../../../components/WordCloud3DDemo.svelte';
 import WordCloudHeavyDemo from '../../../components/WordCloudHeavyDemo.svelte';
+import WordCloud3DCacheDemo from '../../../components/WordCloud3DCacheDemo.svelte';
 
 `WordCloud3D` renders words across multiple depth layers using WebGL (Three.js via Threlte). The viewer can navigate layers with `Ctrl + Wheel`, pinch gesture, or the built-in depth scrollbar. The scroll range extends slightly past the last layer so small words there can be inspected up close.
 
@@ -15,6 +16,12 @@ Must be a descendant of `WordCloud`.
 ## Heavy demo
 
 <WordCloudHeavyDemo client:only="svelte" />
+
+## Cache demo (`useCache`)
+
+The layout algorithm runs once per unique dataset and configuration. Pass `useCache` to persist the result to `localStorage` — subsequent page loads render instantly without re-running the algorithm.
+
+<WordCloud3DCacheDemo client:only="svelte" />
 
 ## Props
 
@@ -83,7 +90,23 @@ Must be a descendant of `WordCloud`.
     {/snippet}
   </WordCloudLabel>
 
-  <WordCloud3D fontUrl={FONT_URL} onWordClick={handleWordClick} />
+  <WordCloud3D fontUrl={FONT_URL} onWordClick={handleWordClick} useCache={true} />
 </WordCloud>
+```
+
+### `clearCache()` example
+
+```svelte
+<script lang="ts">
+  import { WordCloud, WordCloud3D } from '@shamokit/svelte-wordcloud';
+
+  let cloudRef = $state<{ clearCache(): void } | null>(null);
+</script>
+
+<WordCloud data={words}>
+  <WordCloud3D fontUrl={FONT_URL} useCache="my-3d-cloud" bind:this={cloudRef} />
+</WordCloud>
+
+<button onclick={() => cloudRef?.clearCache()}>Clear cache</button>
 ```
 

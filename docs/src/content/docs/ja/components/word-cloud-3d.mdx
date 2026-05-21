@@ -5,6 +5,7 @@ description: 3D マルチレイヤーワードクラウドコンポーネント�
 
 import WordCloud3DDemo from '../../../../components/WordCloud3DDemo.svelte';
 import WordCloudHeavyDemo from '../../../../components/WordCloudHeavyDemo.svelte';
+import WordCloud3DCacheDemo from '../../../../components/WordCloud3DCacheDemo.svelte';
 
 `WordCloud3D` は WebGL（Three.js / Threlte 経由）を使って複数の深度レイヤーにワードをレンダリングします。`Ctrl + Wheel`、ピンチジェスチャー、またはビルトインの深度スクロールバーでレイヤー間を移動できます。スクロール範囲は最後のレイヤーを少し超えて延長されており、そのレイヤーの小さいワードも拡大して確認できます。
 
@@ -15,6 +16,12 @@ import WordCloudHeavyDemo from '../../../../components/WordCloudHeavyDemo.svelte
 ## ヘビーデモ
 
 <WordCloudHeavyDemo client:only="svelte" />
+
+## キャッシュデモ（`useCache`）
+
+レイアウトアルゴリズムはデータと設定が同一であれば1回だけ実行されます。`useCache` を指定すると結果を `localStorage` に保存でき、次回以降のページ読み込み時にレイアウト計算をスキップして即座に描画されます。
+
+<WordCloud3DCacheDemo client:only="svelte" />
 
 ## Props
 
@@ -83,7 +90,23 @@ import WordCloudHeavyDemo from '../../../../components/WordCloudHeavyDemo.svelte
     {/snippet}
   </WordCloudLabel>
 
-  <WordCloud3D fontUrl={FONT_URL} onWordClick={handleWordClick} />
+  <WordCloud3D fontUrl={FONT_URL} onWordClick={handleWordClick} useCache={true} />
 </WordCloud>
+```
+
+### `clearCache()` の使用例
+
+```svelte
+<script lang="ts">
+  import { WordCloud, WordCloud3D } from '@shamokit/svelte-wordcloud';
+
+  let cloudRef = $state<{ clearCache(): void } | null>(null);
+</script>
+
+<WordCloud data={words}>
+  <WordCloud3D fontUrl={FONT_URL} useCache="my-3d-cloud" bind:this={cloudRef} />
+</WordCloud>
+
+<button onclick={() => cloudRef?.clearCache()}>キャッシュを削除</button>
 ```
 
