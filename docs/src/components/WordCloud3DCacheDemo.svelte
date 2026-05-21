@@ -2,58 +2,53 @@
 	import { WordCloud, WordCloud3D } from '@shamokit/svelte-wordcloud';
 	import { heavyWords, FONT_URL } from './demoWords.js';
 
-	let show = $state(true);
 	let cachedRef = $state<{ clearCache(): void } | null>(null);
 
-	async function remount() {
-		show = false;
-		await new Promise<void>((r) => setTimeout(r, 150));
-		show = true;
+	function reload() {
+		window.location.reload();
 	}
 
-	function clearAndRemount() {
+	function clearAndReload() {
 		cachedRef?.clearCache();
-		remount();
+		window.location.reload();
 	}
 </script>
 
 <div class="cache-demo not-content">
-	{#if show}
-		<div class="grid">
-			<div class="pane">
-				<div class="pane-label">No cache (default)</div>
-				<div class="cloud">
-					<WordCloud data={heavyWords} --wc-background="#0d0d1a" --wc-color="#7ec8e3">
-						<WordCloud3D fontUrl={FONT_URL} layout={{ fontSizeContrast: 1 }} />
-					</WordCloud>
-				</div>
-			</div>
-			<div class="pane">
-				<div class="pane-label pane-label--cached"><code>useCache={true}</code></div>
-				<div class="cloud">
-					<WordCloud data={heavyWords} --wc-background="#0d0d1a" --wc-color="#7ec8e3">
-						<WordCloud3D
-							fontUrl={FONT_URL}
-							layout={{ fontSizeContrast: 1 }}
-							useCache={true}
-							bind:this={cachedRef}
-						/>
-					</WordCloud>
-				</div>
+	<div class="grid">
+		<div class="pane">
+			<div class="pane-label">No cache (default)</div>
+			<div class="cloud">
+				<WordCloud data={heavyWords} --wc-background="#0d0d1a" --wc-color="#7ec8e3">
+					<WordCloud3D fontUrl={FONT_URL} layout={{ fontSizeContrast: 1 }} />
+				</WordCloud>
 			</div>
 		</div>
-	{/if}
+		<div class="pane">
+			<div class="pane-label pane-label--cached"><code>useCache={true}</code></div>
+			<div class="cloud">
+				<WordCloud data={heavyWords} --wc-background="#0d0d1a" --wc-color="#7ec8e3">
+					<WordCloud3D
+						fontUrl={FONT_URL}
+						layout={{ fontSizeContrast: 1 }}
+						useCache={true}
+						bind:this={cachedRef}
+					/>
+				</WordCloud>
+			</div>
+		</div>
+	</div>
 
 	<div class="actions">
-		<button onclick={remount}>Remount both</button>
-		<button onclick={clearAndRemount}>Clear localStorage &amp; remount</button>
+		<button onclick={reload}>Reload page</button>
+		<button onclick={clearAndReload}>Clear localStorage &amp; reload</button>
 	</div>
 
 	<p class="note">
-		<strong>Reload the page</strong> — the right cloud appears instantly from localStorage; the left
-		recomputes from scratch. Within the same tab both benefit from the automatic in-memory cache, so
-		"Remount both" is instant for both. Use "Clear localStorage &amp; remount" to reset the
-		persisted entry and see the layout being computed again.
+		Wait for both clouds to finish rendering, then click <strong>Reload page</strong> — the right
+		cloud appears instantly from localStorage while the left recomputes from scratch. Click
+		<strong>Clear localStorage &amp; reload</strong> to reset the persisted entry so you can observe
+		the difference again.
 	</p>
 </div>
 
