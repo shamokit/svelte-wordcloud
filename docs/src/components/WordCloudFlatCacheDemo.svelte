@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { WordCloud, WordCloudFlat } from '@shamokit/svelte-wordcloud';
-	import { words, FONT_URL } from './demoWords.js';
+	import { heavyWords, FONT_URL } from './demoWords.js';
 
 	let show = $state(true);
 	let cachedRef = $state<{ clearCache(): void } | null>(null);
@@ -23,7 +23,7 @@
 			<div class="pane">
 				<div class="pane-label">No cache (default)</div>
 				<div class="cloud">
-					<WordCloud data={words}>
+					<WordCloud data={heavyWords}>
 						<WordCloudFlat fontUrl={FONT_URL} />
 					</WordCloud>
 				</div>
@@ -31,7 +31,7 @@
 			<div class="pane">
 				<div class="pane-label pane-label--cached"><code>useCache={true}</code></div>
 				<div class="cloud">
-					<WordCloud data={words}>
+					<WordCloud data={heavyWords}>
 						<WordCloudFlat fontUrl={FONT_URL} useCache={true} bind:this={cachedRef} />
 					</WordCloud>
 				</div>

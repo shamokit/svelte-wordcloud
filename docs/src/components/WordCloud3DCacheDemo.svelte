@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { WordCloud, WordCloud3D } from '@shamokit/svelte-wordcloud';
-	import { words, FONT_URL } from './demoWords.js';
+	import { heavyWords, FONT_URL } from './demoWords.js';
 
 	let show = $state(true);
 	let cachedRef = $state<{ clearCache(): void } | null>(null);
@@ -23,7 +23,7 @@
 			<div class="pane">
 				<div class="pane-label">No cache (default)</div>
 				<div class="cloud">
-					<WordCloud data={words} --wc-background="#0d0d1a" --wc-color="#7ec8e3">
+					<WordCloud data={heavyWords} --wc-background="#0d0d1a" --wc-color="#7ec8e3">
 						<WordCloud3D fontUrl={FONT_URL} layout={{ fontSizeContrast: 1 }} />
 					</WordCloud>
 				</div>
@@ -31,7 +31,7 @@
 			<div class="pane">
 				<div class="pane-label pane-label--cached"><code>useCache={true}</code></div>
 				<div class="cloud">
-					<WordCloud data={words} --wc-background="#0d0d1a" --wc-color="#7ec8e3">
+					<WordCloud data={heavyWords} --wc-background="#0d0d1a" --wc-color="#7ec8e3">
 						<WordCloud3D
 							fontUrl={FONT_URL}
 							layout={{ fontSizeContrast: 1 }}
