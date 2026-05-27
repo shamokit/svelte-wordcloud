@@ -836,9 +836,9 @@
 			<button
 				type="button"
 				data-wc-fullscreen-btn
-				aria-label={isFullscreen ? exitFullscreenLabel : fullscreenLabel}
 				onclick={toggleFullscreen}
 			>
+				<span data-wc-sr-only>{isFullscreen ? exitFullscreenLabel : fullscreenLabel}</span>
 				{#if isFullscreen}
 					<!-- exit fullscreen icon -->
 					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -1097,6 +1097,19 @@
 		transform: translateX(
 			calc(var(--wc-progress, 0) * (100cqi - var(--wc-dot-size)))
 		);
+	}
+
+	/* ── Screen-reader only ─────────────────────────────────────────────── */
+	:where([data-wc-sr-only]) {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
 	}
 
 	/* ── Fullscreen button ───────────────────────────────────────────────── */
