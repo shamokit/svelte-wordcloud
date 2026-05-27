@@ -71,19 +71,10 @@
 	let layoutW = $state(0);
 	let layoutH = $state(0);
 
-	// Skip flag: set to true by the fullscreen-exit handler so the next debounce
-	// tick is suppressed, allowing the restored pre-fullscreen layoutW/H to win.
-	let _skipNextLayoutDebounce = false;
-	let _skipResetTimer: ReturnType<typeof setTimeout> | null = null;
-
 	$effect(() => {
 		const w = containerW;
 		const h = containerH;
 		const t = setTimeout(() => {
-			if (_skipNextLayoutDebounce) {
-				_skipNextLayoutDebounce = false;
-				return;
-			}
 			layoutW = w;
 			layoutH = h;
 		}, 150);
@@ -99,14 +90,6 @@
 	const ry = $derived(VIEWING_DIST * TAN30 * 0.9);
 	// 1 world unit = layoutH / (2 * ry) px → padding (per-word half-gap) = GAP_PX * ry / layoutH
 	const padding = $derived(layoutH > 0 ? (GAP_PX * ry) / layoutH : 0.06);
-
-	// ── Fullscreen state (declared early so effectivePadding can reference it) ──
-	let isFullscreen = $state(false);
-	let _preFullscreenLayoutW = 0;
-	let _preFullscreenLayoutH = 0;
-	// In fullscreen, widen per-word padding by ~5% for a more comfortable appearance
-	const effectivePadding     = $derived(isFullscreen ? padding * 1.05 : padding);
-	const effectivePaddingFrac = $derived(isFullscreen ? PADDING_FRAC * 1.05 : PADDING_FRAC);
 
 	// ── Layout (async generator) ──────────────────────────────────────────────
 	let wordLayout = $state<ProcessedWord[]>([]);
@@ -176,8 +159,8 @@
 			charH,
 			rx,
 			ry,
-			padding: effectivePadding,
-			paddingFrac: effectivePaddingFrac,
+			padding,
+			paddingFrac: PADDING_FRAC,
 			fontSizeContrast,
 			topWordArea,
 			randomness,
@@ -271,46 +254,25 @@
 		}
 	}
 
-	// ── Fullscreen effects & toggle ──────────────────────────────────────────
-	// (isFullscreen / effectivePadding / effectivePaddingFrac / pre-fullscreen dims
-	//  are declared above, near `padding`, so the layout effect can reference them.)
+	// ── Fullscreen ───────────────────────────────────────────────────────────
+	let isFullscreen = $state(false);
 
 	$effect(() => {
 		function onFullscreenChange() {
-			const wasFullscreen = isFullscreen;
 			isFullscreen = !!(
 				document.fullscreenElement ||
 				(document as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement
 			);
-			// On exit: restore the pre-fullscreen layoutW/H immediately and
-			// prevent the pending debounce timer from overwriting them.
-			if (wasFullscreen && !isFullscreen && _preFullscreenLayoutW > 0) {
-				_skipNextLayoutDebounce = true;
-				layoutW = _preFullscreenLayoutW;
-				layoutH = _preFullscreenLayoutH;
-				// Safety reset — consumes the flag even if containerW/H didn't change
-				if (_skipResetTimer !== null) clearTimeout(_skipResetTimer);
-				_skipResetTimer = setTimeout(() => {
-					_skipNextLayoutDebounce = false;
-					_skipResetTimer = null;
-				}, 300);
-			}
 		}
 		document.addEventListener('fullscreenchange', onFullscreenChange);
 		document.addEventListener('webkitfullscreenchange', onFullscreenChange);
 		return () => {
 			document.removeEventListener('fullscreenchange', onFullscreenChange);
 			document.removeEventListener('webkitfullscreenchange', onFullscreenChange);
-			if (_skipResetTimer !== null) { clearTimeout(_skipResetTimer); _skipResetTimer = null; }
 		};
 	});
 
 	function toggleFullscreen() {
-		if (!isFullscreen) {
-			// Save layout dimensions so they can be restored exactly on exit
-			_preFullscreenLayoutW = layoutW;
-			_preFullscreenLayoutH = layoutH;
-		}
 		if (
 			!document.fullscreenElement &&
 			!(document as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement
@@ -962,8 +924,7 @@
 		overflow: hidden;
 		/* Let JS handle all touch gestures */
 		touch-action: none;
-		/* Set --wc-aspect-ratio to lock the canvas aspect ratio, e.g. style="--wc-aspect-ratio: 16 / 9" */
-		aspect-ratio: var(--wc-aspect-ratio, auto);
+		aspect-ratio: var(--wc-aspect-ratio, 16 / 9);
 	}
 
 	/* ── Shared ─────────────────────────────────────────────────────────────── */
