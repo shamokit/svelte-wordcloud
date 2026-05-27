@@ -508,8 +508,8 @@
 			if (e.touches.length === 2 && lastDist > 0) {
 				e.preventDefault();
 				const d = pinchDist(e);
-				// Pinch in (d shrinks) → go deeper; pinch out → go shallower
-				const delta = (lastDist - d) * 0.05 * wheelScrollSpeed;
+				// Pinch out (d grows) → go deeper; pinch in → go shallower
+				const delta = (d - lastDist) * 0.05 * wheelScrollSpeed;
 				lastDist = d;
 				targetZ = Math.max(scrollMinZ, Math.min(scrollMaxZ, targetZ - delta));
 				camSpring.set(targetZ);
