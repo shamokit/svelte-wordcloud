@@ -1,5 +1,20 @@
 # @shamokit/svelte-wordcloud
 
+## 0.3.1
+
+### Patch Changes
+
+- [#33](https://github.com/shamokit/svelte-wordcloud/pull/33) [`e7d8095`](https://github.com/shamokit/svelte-wordcloud/commit/e7d80951b30e1b2763fdf37a8673fc66d3b95d18) Thanks [@shamokit](https://github.com/shamokit)! - fix(3d): reverse pinch-in/out direction on mobile for WordCloud3D
+
+  Previously, pinching in (fingers together) navigated deeper into layers
+  and pinching out (fingers apart) navigated shallower — the opposite of
+  the standard pinch-to-zoom convention found in most mobile apps.
+
+  The delta sign has been flipped so that:
+
+  - Pinch out (spread) → camera moves forward → deeper layers
+  - Pinch in (close) → camera pulls back → shallower layers
+
 ## 0.3.0
 
 ### Minor Changes
