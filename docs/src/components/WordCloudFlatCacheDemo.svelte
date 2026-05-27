@@ -15,27 +15,10 @@
 </script>
 
 <div class="not-content" style="display:flex;flex-direction:column;gap:1rem;">
-	<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-		<div style="display:flex;flex-direction:column;gap:0.5rem;">
-			<div style="font-size:0.8rem;font-weight:600;text-align:center;padding:0.25rem 0.5rem;border-radius:4px;background:#f3f4f6;color:#374151;">
-				No cache (default)
-			</div>
-			<div style="height:280px;border-radius:8px;overflow:hidden;">
-				<WordCloud data={heavyWords}>
-					<WordCloudFlat fontUrl={FONT_URL} />
-				</WordCloud>
-			</div>
-		</div>
-		<div style="display:flex;flex-direction:column;gap:0.5rem;">
-			<div style="font-size:0.8rem;font-weight:600;text-align:center;padding:0.25rem 0.5rem;border-radius:4px;background:#d1fae5;color:#065f46;">
-				<code>useCache={true}</code>
-			</div>
-			<div style="height:280px;border-radius:8px;overflow:hidden;">
-				<WordCloud data={heavyWords}>
-					<WordCloudFlat fontUrl={FONT_URL} useCache={true} bind:this={cachedRef} />
-				</WordCloud>
-			</div>
-		</div>
+	<div style="height:320px;border-radius:8px;overflow:hidden;">
+		<WordCloud data={heavyWords}>
+			<WordCloudFlat fontUrl={FONT_URL} useCache={true} bind:this={cachedRef} />
+		</WordCloud>
 	</div>
 
 	<div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
@@ -54,9 +37,8 @@
 	</div>
 
 	<p style="font-size:0.85rem;color:#6b7280;margin:0;line-height:1.5;">
-		Wait for both clouds to finish rendering, then click <strong>Reload page</strong> — the right
-		cloud appears instantly from localStorage while the left recomputes from scratch. Click
-		<strong>Clear localStorage &amp; reload</strong> to reset the persisted entry so you can observe
-		the difference again.
+		Wait for the cloud to finish rendering, then click <strong>Reload page</strong> — it appears
+		instantly from localStorage. Click <strong>Clear localStorage &amp; reload</strong> to reset
+		the persisted entry and observe the layout computation from scratch.
 	</p>
 </div>
