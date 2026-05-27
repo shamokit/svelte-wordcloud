@@ -77,6 +77,16 @@ export type WordCloudFlatA11y = {
 	 * Default: 'Reset pan (double-click)'
 	 */
 	resetPanLabel?: string;
+	/**
+	 * Screen-reader label for the enter-fullscreen button.
+	 * Default: 'Enter fullscreen'
+	 */
+	fullscreenLabel?: string;
+	/**
+	 * Screen-reader label for the exit-fullscreen button.
+	 * Default: 'Exit fullscreen'
+	 */
+	exitFullscreenLabel?: string;
 };
 
 export type WordCloudFlatProps = {
@@ -179,6 +189,16 @@ export type WordCloud3DA11y = {
 	 * Default: 'Reset pan (double-click)'
 	 */
 	resetPanLabel?: string;
+	/**
+	 * Screen-reader label for the enter-fullscreen button.
+	 * Default: 'Enter fullscreen'
+	 */
+	fullscreenLabel?: string;
+	/**
+	 * Screen-reader label for the exit-fullscreen button.
+	 * Default: 'Exit fullscreen'
+	 */
+	exitFullscreenLabel?: string;
 };
 
 export type WordCloud3DProps = {
