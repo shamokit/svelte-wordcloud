@@ -34,11 +34,13 @@
 	const topWordArea     = $derived(layout.topWordArea     ?? 0.22);
 	const randomness      = $derived(layout.randomness      ?? 0.32);
 
-	const depthValueText = $derived(a11y.depthValueText ?? ((c: number, t: number) => `Layer ${c} / ${t}`));
-	const depthLabel     = $derived(a11y.depthLabel     ?? 'Depth');
-	const panHint        = $derived(a11y.panHint        ?? 'Arrow keys to pan');
-	const panLabel       = $derived(a11y.panLabel       ?? 'Pan camera. Use arrow keys to move the view.');
-	const resetPanLabel  = $derived(a11y.resetPanLabel  ?? 'Reset pan (double-click)');
+	const depthValueText      = $derived(a11y.depthValueText      ?? ((c: number, t: number) => `Layer ${c} / ${t}`));
+	const depthLabel          = $derived(a11y.depthLabel          ?? 'Depth');
+	const panHint             = $derived(a11y.panHint             ?? 'Arrow keys to pan');
+	const panLabel            = $derived(a11y.panLabel            ?? 'Pan camera. Use arrow keys to move the view.');
+	const resetPanLabel       = $derived(a11y.resetPanLabel       ?? 'Reset pan (double-click)');
+	const fullscreenLabel     = $derived(a11y.fullscreenLabel     ?? 'Enter fullscreen');
+	const exitFullscreenLabel = $derived(a11y.exitFullscreenLabel ?? 'Exit fullscreen');
 
 	// Read shared data and scroll controls from context
 	const ctx = getWCContext();
@@ -710,6 +712,45 @@
 			try { localStorage.removeItem(_currentStorageKey3D); } catch { /* SecurityError → ignore */ }
 		}
 	}
+
+	// ── Fullscreen ───────────────────────────────────────────────────────────
+	let isFullscreen = $state(false);
+
+	$effect(() => {
+		function onFullscreenChange() {
+			isFullscreen = !!(
+				document.fullscreenElement ||
+				(document as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement
+			);
+		}
+		document.addEventListener('fullscreenchange', onFullscreenChange);
+		document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+		return () => {
+			document.removeEventListener('fullscreenchange', onFullscreenChange);
+			document.removeEventListener('webkitfullscreenchange', onFullscreenChange);
+		};
+	});
+
+	function toggleFullscreen() {
+		if (
+			!document.fullscreenElement &&
+			!(document as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement
+		) {
+			const el = rootEl as HTMLDivElement & { webkitRequestFullscreen?: () => void };
+			if (el?.requestFullscreen) {
+				el.requestFullscreen();
+			} else if (el?.webkitRequestFullscreen) {
+				el.webkitRequestFullscreen();
+			}
+		} else {
+			const doc = document as Document & { webkitExitFullscreen?: () => void };
+			if (doc.exitFullscreen) {
+				doc.exitFullscreen();
+			} else if (doc.webkitExitFullscreen) {
+				doc.webkitExitFullscreen();
+			}
+		}
+	}
 </script>
 
 {#if ctx.data.length > 0}
@@ -792,6 +833,30 @@
 					onpointercancel={handleDepthThumbPointerUp}
 				></button>
 			</div>
+			<button
+				type="button"
+				data-wc-fullscreen-btn
+				onclick={toggleFullscreen}
+			>
+				<span data-wc-sr-only>{isFullscreen ? exitFullscreenLabel : fullscreenLabel}</span>
+				{#if isFullscreen}
+					<!-- exit fullscreen icon -->
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+						<path d="M8 3v3a2 2 0 0 1-2 2H3"/>
+						<path d="M21 8h-3a2 2 0 0 1-2-2V3"/>
+						<path d="M3 16h3a2 2 0 0 1 2 2v3"/>
+						<path d="M16 21v-3a2 2 0 0 1 2-2h3"/>
+					</svg>
+				{:else}
+					<!-- enter fullscreen icon -->
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+						<path d="M8 3H5a2 2 0 0 0-2 2v3"/>
+						<path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
+						<path d="M3 16v3a2 2 0 0 0 2 2h3"/>
+						<path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
+					</svg>
+				{/if}
+			</button>
 		</div>
 	</div>
 {/if}
@@ -901,7 +966,7 @@
 		max-height: 100%;
 		overflow: hidden;
 		cursor: grab;
-		aspect-ratio: var(--wc-aspect-ratio, auto);
+		aspect-ratio: var(--wc-aspect-ratio, 16 / 9);
 		position: relative;
 	}
 
@@ -1032,5 +1097,72 @@
 		transform: translateX(
 			calc(var(--wc-progress, 0) * (100cqi - var(--wc-dot-size)))
 		);
+	}
+
+	/* ── Screen-reader only ─────────────────────────────────────────────── */
+	:where([data-wc-sr-only]) {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
+	}
+
+	/* ── Fullscreen button ───────────────────────────────────────────────── */
+	:where([data-wc-fullscreen-btn]) {
+		background: transparent;
+		border: none;
+		padding: 0;
+		margin: 0;
+		cursor: pointer;
+		color: color-mix(in srgb, var(--wc-color, currentColor) 70%, transparent);
+		width: 28px;
+		height: 28px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 4px;
+		flex-shrink: 0;
+		transition: color 0.15s;
+	}
+
+	:where([data-wc-fullscreen-btn]):hover {
+		color: var(--wc-color, currentColor);
+	}
+
+	:where([data-wc-fullscreen-btn]):focus-visible {
+		outline: 2px solid var(--wc-color, currentColor);
+		outline-offset: 2px;
+	}
+
+	:where([data-wc-fullscreen-btn]) svg {
+		width: 16px;
+		height: 16px;
+		display: block;
+		pointer-events: none;
+	}
+
+	/*
+	 * Keep the fullscreen button visible and interactive even when the depth
+	 * column is hidden (single-layer cloud). The column still reserves its
+	 * gutter space via visibility:hidden, so the button stays in position.
+	 */
+	:where([data-wc-depth-col][data-wc-hidden]) :where([data-wc-fullscreen-btn]) {
+		visibility: visible;
+		pointer-events: auto;
+	}
+
+	/*
+	 * Allow the fullscreen button to remain interactive during layout loading
+	 * (the depth col sets pointer-events:none on loading, but fullscreen should
+	 * always be reachable).
+	 */
+	:where([data-wc-depth-col][data-wc-loading]) :where([data-wc-fullscreen-btn]) {
+		pointer-events: auto;
+		opacity: 1;
 	}
 </style>

@@ -38,10 +38,10 @@ export type WordCloudFlatLayout = {
 	/**
 	 * How large the most frequent word appears relative to the canvas.
 	 * Expressed as a target fraction of the total canvas area (0.0–1.0).
-	 * At the default of 0.22, the largest word's bounding box covers roughly
-	 * 22% of the canvas area — about half the canvas width for a typical word.
-	 * Raise to make the dominant word larger; lower to keep all words smaller.
-	 * Default: 0.22.
+	 * At the default of 0.5, the largest word's bounding box covers roughly
+	 * 50% of the canvas area. Raise to make the dominant word larger; lower
+	 * to keep all words smaller.
+	 * Default: 0.5.
 	 */
 	topWordArea?: number;
 	/**
@@ -77,6 +77,16 @@ export type WordCloudFlatA11y = {
 	 * Default: 'Reset pan (double-click)'
 	 */
 	resetPanLabel?: string;
+	/**
+	 * Screen-reader label for the enter-fullscreen button.
+	 * Default: 'Enter fullscreen'
+	 */
+	fullscreenLabel?: string;
+	/**
+	 * Screen-reader label for the exit-fullscreen button.
+	 * Default: 'Exit fullscreen'
+	 */
+	exitFullscreenLabel?: string;
 };
 
 export type WordCloudFlatProps = {
@@ -179,6 +189,16 @@ export type WordCloud3DA11y = {
 	 * Default: 'Reset pan (double-click)'
 	 */
 	resetPanLabel?: string;
+	/**
+	 * Screen-reader label for the enter-fullscreen button.
+	 * Default: 'Enter fullscreen'
+	 */
+	fullscreenLabel?: string;
+	/**
+	 * Screen-reader label for the exit-fullscreen button.
+	 * Default: 'Exit fullscreen'
+	 */
+	exitFullscreenLabel?: string;
 };
 
 export type WordCloud3DProps = {

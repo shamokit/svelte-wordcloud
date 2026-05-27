@@ -39,7 +39,7 @@ The layout algorithm runs once per unique dataset and configuration. Pass `useCa
 | Key | Type | Default | Description |
 | --- | ---- | ------- | ----------- |
 | `fontSizeContrast` | `number` | `2.0` | Power-curve exponent. Higher = top words dominate more; lower = more uniform sizes. |
-| `topWordArea` | `number` | `0.22` | Fraction of viewport area targeted by the largest word. |
+| `topWordArea` | `number` | `0.5` | Fraction of viewport area targeted by the largest word. |
 | `randomness` | `number` | `0.5` | Randomness applied to word placement. `0` = grid-like, `1` = maximum scatter. |
 
 ### `a11y`
@@ -51,6 +51,8 @@ The layout algorithm runs once per unique dataset and configuration. Pass `useCa
 | `panHint` | `string` | `'Arrow keys to pan'` | Short visible hint shown inside the keyboard pan control when focused. |
 | `panLabel` | `string` | `'Pan view. Use arrow keys to move.'` | Screen-reader description for the keyboard pan control button. |
 | `resetPanLabel` | `string` | `'Reset pan (double-click)'` | Screen-reader label for the reset pan button. |
+| `fullscreenLabel` | `string` | `'Enter fullscreen'` | Screen-reader label for the enter-fullscreen button. |
+| `exitFullscreenLabel` | `string` | `'Exit fullscreen'` | Screen-reader label for the exit-fullscreen button. |
 
 ## Usage
 
