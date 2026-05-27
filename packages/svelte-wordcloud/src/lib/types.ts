@@ -38,10 +38,10 @@ export type WordCloudFlatLayout = {
 	/**
 	 * How large the most frequent word appears relative to the canvas.
 	 * Expressed as a target fraction of the total canvas area (0.0–1.0).
-	 * At the default of 0.22, the largest word's bounding box covers roughly
-	 * 22% of the canvas area — about half the canvas width for a typical word.
-	 * Raise to make the dominant word larger; lower to keep all words smaller.
-	 * Default: 0.22.
+	 * At the default of 0.5, the largest word's bounding box covers roughly
+	 * 50% of the canvas area. Raise to make the dominant word larger; lower
+	 * to keep all words smaller.
+	 * Default: 0.5.
 	 */
 	topWordArea?: number;
 	/**

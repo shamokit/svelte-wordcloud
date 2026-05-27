@@ -30,7 +30,9 @@ export default defineConfig({
   import { WordCloud, WordCloud3D, WordCloudLabel } from '@shamokit/svelte-wordcloud';
   import type { WordItem } from '@shamokit/svelte-wordcloud';
 
-  const FONT_URL = 'https://fonts.gstatic.com/s/notosansjp/v56/-F6jfjtqLzI2JPCgQBnw7HFyzSD-AsregP8VFBEj75s.ttf';
+  // Place your font file in public/fonts/ and reference it by path.
+  // Self-hosting is required; external CDN URLs may be blocked at runtime.
+  const FONT_URL = '/fonts/NotoSansJP.ttf';
 
   const words: WordItem[] = [
     { word: 'Svelte',     counts: 120 },
