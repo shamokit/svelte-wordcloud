@@ -152,6 +152,20 @@
 		// a spurious cancel-and-restart that makes rendering appear to stop midway.
 		if (layoutH === 0 || layoutW === 0) return;
 
+		// Wait for font metrics before running layout.
+		// Large CJK fonts (e.g. NotoSansJP at 9 MB) can take several seconds to
+		// load in the troika worker on a first visit. If we run the layout before
+		// metrics arrive we fall back to CHAR_W_FALLBACK (0.6 em) for every word.
+		// Japanese characters are ~0.97 em wide, so the bounding boxes come out
+		// 38 % too narrow and the rendered words visually overlap each other.
+		if (ctx.data.some((d) => typeof d.word === 'string' && d.word.trim().length > 0)
+			&& Object.keys(wordWidths).length === 0) {
+			// Activate the spinner so the user sees loading feedback rather than a
+			// blank canvas while the font loads in the troika worker.
+			if (_loadingVersion === _finishedVersion) _loadingVersion++;
+			return;
+		}
+
 		const params: LayoutFlatParams = {
 			data: ctx.data,
 			wordWidths,

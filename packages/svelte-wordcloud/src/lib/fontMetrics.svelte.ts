@@ -63,7 +63,9 @@ export function createFontMetrics(
 								if (visW > 0) measuredW[word] = visW;
 								if (halfH > 0) measuredHH[word] = halfH;
 							} else {
-								const w = info.caretPositions?.[word.length * 3];
+								// caretPositions uses stride 4: [startX, endX, bottomY, topY] per char.
+								// The endX of the last character equals the total advance width.
+								const w = info.caretPositions?.[(word.length - 1) * 4 + 1];
 								if (typeof w === 'number' && w > 0) measuredW[word] = w;
 							}
 							// Collect the first valid cap height but defer state update.
@@ -71,6 +73,12 @@ export function createFontMetrics(
 								const cap = info.capHeight ?? info.ascender;
 								if (typeof cap === 'number' && cap > 0 && cap < 1.5) {
 									pendingCharH = cap;
+								} else {
+									// No capHeight / ascender — common for CJK fonts (e.g. NotoSansJP).
+									// Derive an estimate from the visual half-height: fullHeight ≈ halfH * 2,
+									// which approximates the em-square height of the glyphs.
+									const hh = measuredHH[word];
+									if (typeof hh === 'number' && hh > 0) pendingCharH = hh * 2;
 								}
 							}
 							if (--remaining === 0) {
