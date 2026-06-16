@@ -15,7 +15,7 @@
     "@sveltejs/vite-plugin-svelte": "^7.0.0",
     "@types/three": "^0.184.0",
     "svelte": "^5.55.7",
-    "vite": "^8.0.7"
+    "vite": "^8.0.16"
   },
   "dependencies": {
     "@shamokit/svelte-wordcloud": "workspace:*",
