@@ -3,5 +3,13 @@ packages:
   - 'playground'
   - 'docs'
 
+allowBuilds:
+  esbuild: true
+  sharp: true
+
+minimumReleaseAgeExclude:
+  - '@lucide/svelte@1.20.0'
+  - '@sveltejs/kit@2.65.2'
+
 onlyBuiltDependencies:
   - esbuild

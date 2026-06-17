@@ -1,25 +1,25 @@
 {
-  "name": "docs",
-  "private": true,
-  "scripts": {
-    "dev": "astro dev",
-    "build": "astro build",
-    "preview": "astro preview"
-  },
-  "devDependencies": {
-    "@astrojs/starlight": "^0.39.2",
-    "@astrojs/svelte": "^8.1.0",
-    "astro": "^6.3.1",
-    "sharp": "^0.33.0",
-    "svelte": "^5.55.7"
-  },
-  "dependencies": {
-    "@astrojs/vercel": "^10.0.6",
-    "@shamokit/svelte-wordcloud": "workspace:*",
-    "@threlte/core": "^8.5.9",
-    "@threlte/extras": "^9.14.9",
-    "@vercel/speed-insights": "^2.0.0",
-    "three": "^0.184.0",
-    "troika-three-text": "^0.52.4"
-  }
+	"name": "docs",
+	"private": true,
+	"scripts": {
+		"dev": "astro dev",
+		"build": "astro build",
+		"preview": "astro preview"
+	},
+	"devDependencies": {
+		"@astrojs/starlight": "^0.40.0",
+		"@astrojs/svelte": "^8.1.2",
+		"astro": "^6.4.7",
+		"sharp": "^0.35.1",
+		"svelte": "^5.56.3"
+	},
+	"dependencies": {
+		"@astrojs/vercel": "^10.0.8",
+		"@shamokit/svelte-wordcloud": "workspace:*",
+		"@threlte/core": "^8.5.16",
+		"@threlte/extras": "^9.21.0",
+		"@vercel/speed-insights": "^2.0.0",
+		"three": "^0.184.0",
+		"troika-three-text": "^0.52.4"
+	}
 }

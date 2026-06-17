@@ -1,27 +1,27 @@
 {
-  "name": "playground",
-  "private": true,
-  "version": "0.0.12",
-  "type": "module",
-  "scripts": {
-    "dev": "vite dev",
-    "build": "vite build",
-    "preview": "vite preview",
-    "prepare": "svelte-kit sync || echo ''"
-  },
-  "devDependencies": {
-    "@sveltejs/adapter-auto": "^7.0.1",
-    "@sveltejs/kit": "^2.60.1",
-    "@sveltejs/vite-plugin-svelte": "^7.0.0",
-    "@types/three": "^0.184.0",
-    "svelte": "^5.55.7",
-    "vite": "^8.0.7"
-  },
-  "dependencies": {
-    "@shamokit/svelte-wordcloud": "workspace:*",
-    "@threlte/core": "^8.5.9",
-    "@threlte/extras": "^9.14.9",
-    "three": "^0.184.0",
-    "troika-three-text": "^0.52.4"
-  }
+	"name": "playground",
+	"private": true,
+	"version": "0.0.12",
+	"type": "module",
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build",
+		"preview": "vite preview",
+		"prepare": "svelte-kit sync || echo ''"
+	},
+	"devDependencies": {
+		"@sveltejs/adapter-auto": "^7.0.1",
+		"@sveltejs/kit": "^2.65.2",
+		"@sveltejs/vite-plugin-svelte": "^7.1.2",
+		"@types/three": "^0.184.1",
+		"svelte": "^5.56.3",
+		"vite": "^8.0.16"
+	},
+	"dependencies": {
+		"@shamokit/svelte-wordcloud": "workspace:*",
+		"@threlte/core": "^8.5.16",
+		"@threlte/extras": "^9.21.0",
+		"three": "^0.184.0",
+		"troika-three-text": "^0.52.4"
+	}
 }
