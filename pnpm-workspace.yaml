@@ -3,6 +3,9 @@ packages:
   - 'playground'
   - 'docs'
 
+overrides:
+  svelte2tsx: ^0.7.55
+
 allowBuilds:
   esbuild: true
   sharp: true
