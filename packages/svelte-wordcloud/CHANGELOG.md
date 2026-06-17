@@ -1,5 +1,11 @@
 # @shamokit/svelte-wordcloud
 
+## 0.4.2
+
+### Patch Changes
+
+- [#40](https://github.com/shamokit/svelte-wordcloud/pull/40) [`0d705b5`](https://github.com/shamokit/svelte-wordcloud/commit/0d705b5033217342e9fbc4501329c74c682dadba) Thanks [@shamokit](https://github.com/shamokit)! - ⬆️ update packages
+
 ## 0.4.1
 
 ### Patch Changes
