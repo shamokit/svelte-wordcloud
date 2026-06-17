@@ -9,6 +9,7 @@ overrides:
   vite@>=7.0.0 <8.0.0: ^7.3.5
   path-to-regexp: ^6.3.0
   tar: ^7.5.16
+  read-yaml-file: ^2.1.0
   js-yaml: ^4.2.0
 
 allowBuilds:
