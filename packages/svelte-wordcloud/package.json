@@ -55,7 +55,7 @@
 		"@changesets/changelog-github": "^0.7.0",
 		"@changesets/cli": "^2.31.0",
 		"@sveltejs/adapter-auto": "^7.0.1",
-		"@sveltejs/kit": "^2.65.2",
+		"@sveltejs/kit": "^2.70.2",
 		"@sveltejs/package": "^2.5.8",
 		"@sveltejs/vite-plugin-svelte": "^7.1.2",
 		"@threlte/core": "^8.5.16",
